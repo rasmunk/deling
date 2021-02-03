@@ -3,10 +3,10 @@ os: linux
 compiler:
 - gcc
 python:
-- '2.7'
-- '3.5'
 - '3.6'
 - '3.7'
+- '3.8'
+- '3.9'
 addons:
   apt:
     packages:
@@ -19,8 +19,9 @@ env:
   - secure: ZQ9JGFobC88VBn6ldGOCdwINBzBawKDN6jFe84xnOjQRwbC1MGnpRQCxZzYknWGyBdv/yYmUHB/l1Qe7k6rekZOocX9fD/RWgNyelMADdQyLnuqlQLhagOIrYDRtne4Gu99NVc3Y1YtK1obSVL6XpHhplzVcSw9H7xgXKgn/4CvT98kVUB7Xah+HG1eCl8P96A0JgogxyOdGEpkMOEOLJTnctgALXDV63Kh/tyB8SEpkg4dXfr8cStlwJKrWIMcxU6wc9QM0S8MGU/1VaoeRPVDbFg/civFE1+WasFeIp4QCDudqHPXPvYlcvDoU31enAOxtXrTGoME32otxF+XrZDXKs37a9irHk+ofyEqhzQPD6sv/z65v143xr5oeneQzT0Rtk8XYmoDQWQVrzfkX5KY+umP1z9MXtqIjQnuNpeJyXsVJNPY748mjwT+sn8cKaFsUkfDuaAJ6G1Ulm3vacKpgDUY81f0HcJlg4wa9jnxTRX/4s6Mf3gsH5qYZIjY+6ZixInDGv09p+ZgnOlp3ba35KVJGl86Lf+j4pgKV9dqOccRkETht8t5jKinK03ekpguSOEKEKXHNpeY9lS2qJJpBjeIIqDBNgl+ApJFI8t6wj8RRH8H3H1uzpLWpgxsNiO99a+40myh7jNPJ53y0Gk8+uOsTVTbeyWdbfKPJ6Pk=
   - secure: YNFZDzgrVOKyjRgOBN/UeA5DfRqv8tOzF3tHITO3j9FYMyLsokaKnnrX6ui2LsgvE2lwjGkMBBfV9lUgMg/Y/LxiWRXF2AO8srZoAFX6aRpBh9vW5/dfR+omnAV59pfPujDyut7dIsfRZpaBQzQzGxIomKC0/X4AkkVGzflvTH6eW0hVBQyHsWJXFmVdIPFNMi9d8cxE1HMYZw0piBSrNMtGdcqFhvlLAGJsdUFqb1j7yQvCN1MUOKoGAEJmyzEkicrW6ZkRSdIrU3QlFbtASCp6L3gvmDftV4IcHLSKFDlAxg0m9aAPoHc6BjCeIfnQcM34/dWsQMkD7/KbjwGhEmx2sTmTtr40I6PgaUwhk4C5nYiOPEqthepGVU0O+Fdx+9YoiDohttXFimz/bzUrTihpWadlpZVvcI/bJPEQbwX2qOqkNs8hBU/tHWAya+xfH6tHkn37juLofi0ilISYs68IOg7PoOHMbus3GoeF5KJXZr6OKpdHAdH4lPqK5604W4Ree6aNgV3T1t3I6tDc1llmmtuLVhAfdvLho7bMXSMbtPLU/ijFf0QP/WxedDaJygKiq2E4+IfYKwFwJOpDvSjAsqCZhgGar5C/lmWk5NTlcEEqYopKag/0lGTqSaDfYDnAd3jdDtaqjLomZVod6Fyynj+Au3vhtZdRq7INZ74=
 install:
-- pip install -r tests/requirements.txt
-- python setup.py install
+- pip install .[dev]
+- pip install .
+- pip install .[test]
 script:
 - python setup.py check -rms
 - flake8
