@@ -1,7 +1,8 @@
-import sys
-from setuptools import find_packages
+import os
+from setuptools import setup, find_packages
 
 here = os.path.dirname(__file__)
+
 
 def read(path):
     with open(path, "r") as _file:
