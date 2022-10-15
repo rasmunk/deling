@@ -50,9 +50,9 @@ uninstall:
 	$(VENV)/pip uninstall -y -r $(PACKAGE_NAME)
 
 installcheck:
-# Mig Utils must be installed before it can be tested
-	$(VENV) pip install .
 	$(VENV)/pip install -r tests/requirements.txt
+# mig_utils must be installed into the relative venv before it can be tested
+	. $(VENV)/activate; pip install .
 
 uninstallcheck:
 	$(VENV)/pip uninstall -y -r requirements.txt
