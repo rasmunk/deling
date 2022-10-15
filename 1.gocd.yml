@@ -1,0 +1,28 @@
+environments:
+  bare_metal_pypi_package:
+    environments:
+      GIT_USER: "{{SECRET:[github][username]}}"
+    pipelines:
+      - mig_utils
+pipelines:
+  mig_utils:
+    group: pypi_package
+    locking: off
+    materials:
+      mig_utils_git:  # this is the name of material
+        # says about type of material and url at once
+        git: https://github.com/rasmunk/mig_utils.git
+        branch: master
+        destination: mig_utils
+      publish_python_git:
+        git: https://github.com/rasmunk/publish-python-scripts.git
+        branch: main
+        username: ${GIT_USER}
+        password: "{{SECRET:[github][access_token]}}"
+        destination: publish-python-scripts
+    parameters:
+      ARGS: ''
+      SRC_DIRECTORY: mig_utils
+      TEST_DIRECTORY: mig_utils
+      PUSH_DIRECTORY: publish-python-scripts
+    template: pypi_package
