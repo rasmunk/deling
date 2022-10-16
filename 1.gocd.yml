@@ -2,6 +2,8 @@ environments:
   bare_metal_pypi_package:
     environments:
       GIT_USER: "{{SECRET:[github][username]}}"
+      ERDA_TEST_SHARE: "{{SECRET:[mig_utils][erda_test_share]}}"
+      IDMC_TEST_SHARE: "{{SECRET:[mig_utils][idmc_test_share]}}"
     pipelines:
       - mig_utils
 pipelines:
