@@ -45,7 +45,6 @@ class ERDASSHFSShareTest(unittest.TestCase):
 
         self.files = [
             self.tmp_file,
-            self.tmp_file,
             self.write_file,
             self.binary_file,
             self.write_file,
@@ -315,7 +314,6 @@ class IDMCSftpShareTest(unittest.TestCase):
         self.img = "kmeans.tif"
 
         self.files = [
-            self.tmp_file,
             self.tmp_file,
             self.write_file,
             self.binary_file,
