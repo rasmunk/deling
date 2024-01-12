@@ -1,7 +1,6 @@
 import fs
-import six
 import socket
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
 from fs.errors import ResourceNotFound
 from ssh2.session import Session
 from ssh2.exceptions import SFTPProtocolError
@@ -17,7 +16,6 @@ from ssh2.sftp import (
 )
 
 
-@six.add_metaclass(ABCMeta)
 class DataStore:
     _client = None
 
@@ -58,7 +56,6 @@ class DataStore:
         pass
 
 
-@six.add_metaclass(ABCMeta)
 class FileHandle:
     @abstractmethod
     def close(self):
@@ -98,14 +95,14 @@ class SSHFSStore(DataStore):
         :return:
         a _io.TextIOWrapper object with utf-8 encoding
         """
-        return self._client.open(six.text_type(path), flag)
+        return self._client.open(path, flag)
 
     def exists(self, path):
         """
         :param path: the path we are checking whether it exists
         :return: Boolean
         """
-        return self._client.exists(six.text_type(path))
+        return self._client.exists(path)
 
     def list(self, path="."):
         """
@@ -115,7 +112,7 @@ class SSHFSStore(DataStore):
         A list of items in the path.
         There is no distinction between files and dirs
         """
-        return self._client._sftp.listdir(six.text_type(path))
+        return self._client._sftp.listdir(path)
 
     def read(self, path):
         """
@@ -124,7 +121,7 @@ class SSHFSStore(DataStore):
         :return:
         a string of the content within file
         """
-        with self._client.open(six.text_type(path)) as open_file:
+        with self._client.open(path) as open_file:
             return open_file.read()
 
     def write(self, path, data, flag="a"):
@@ -135,14 +132,14 @@ class SSHFSStore(DataStore):
         :param flag: write flag, defaults to append
         :return:
         """
-        with self.open(six.text_type(path), flag) as fh:
+        with self.open(path, flag) as fh:
             fh.write(data)
 
     def mkdir(self, path, mode=755):
         """
         :param path: path to the directory that should be created
         """
-        self._client._sftp.mkdir(six.text_type(path), mode)
+        self._client._sftp.mkdir(path, mode)
 
     def remove(self, path):
         """
@@ -152,7 +149,7 @@ class SSHFSStore(DataStore):
         Bool, whether a file was removed or not
         """
         try:
-            self._client.remove(six.text_type(path))
+            self._client.remove(path)
             return True
         except ResourceNotFound:
             return False
@@ -164,7 +161,7 @@ class SSHFSStore(DataStore):
         :return:
         A list of .SFTPAttributes objects
         """
-        return self._client._sftp.listdir_attr(six.text_type(path))
+        return self._client._sftp.listdir_attr(path)
 
     def read_binary(self, path):
         """
@@ -173,7 +170,7 @@ class SSHFSStore(DataStore):
         :return:
         a binary of the content within file
         """
-        with self._client.openbin(six.text_type(path)) as open_file:
+        with self._client.openbin(path) as open_file:
             return open_file.read()
 
     def rmdir(self, path):
@@ -184,7 +181,7 @@ class SSHFSStore(DataStore):
         Bool, whether a dir was removed or not
         """
         try:
-            self._client._sftp.rmdir(six.text_type(path))
+            self._client._sftp.rmdir(path)
             return True
         except ResourceNotFound:
             return False
@@ -244,9 +241,9 @@ class SFTPFileHandle(FileHandle):
         if type(data) == bytes:
             self.fh.write(data)
         elif type(data) == str:
-            self.fh.write(six.b(data))
+            self.fh.write(data)
         else:
-            self.fh.write(six.b(str(data)))
+            self.fh.write(data)
 
     def seek(self, offset, whence=0):
         """Seek file to a given offset
@@ -314,9 +311,7 @@ class SFTPStore(DataStore):
         /blob/master/ssh2/sftp_handle.pyx
         """
         if flag == "r" or flag == "rb":
-            fh = self._client.open(
-                six.text_type(path), LIBSSH2_FXF_READ, LIBSSH2_SFTP_S_IWUSR
-            )
+            fh = self._client.open(path, LIBSSH2_FXF_READ, LIBSSH2_SFTP_S_IWUSR)
         else:
             w_flags = None
             if flag == "w" or flag == "wb":
@@ -329,7 +324,7 @@ class SFTPStore(DataStore):
                 | LIBSSH2_SFTP_S_IRGRP
                 | LIBSSH2_SFTP_S_IROTH
             )
-            fh = self._client.open(six.text_type(path), w_flags, mode)
+            fh = self._client.open(path, w_flags, mode)
         assert fh is not None
         handle = SFTPFileHandle(fh, path, flag)
         return handle
@@ -342,7 +337,7 @@ class SFTPStore(DataStore):
         # There is no direct way to check if it exists
         # See if we can stat the designated path instead
         try:
-            self._client.stat(six.text_type(path))
+            self._client.stat(path)
             return True
         except SFTPProtocolError:
             return False
@@ -353,7 +348,7 @@ class SFTPStore(DataStore):
         :param path: path to the directory which content should be listed
         :return: list of str, of items in the path directory
         """
-        with self._client.opendir(six.text_type(path)) as fh:
+        with self._client.opendir(path) as fh:
             return [name.decode("utf-8") for size, name, attrs in fh.readdir()]
 
     def mkdir(self, path, mode=755, **kwargs):
@@ -361,20 +356,20 @@ class SFTPStore(DataStore):
         :param path: path to the directory that should be created
         :return: Boolean
         """
-        self._client.mkdir(six.text_type(path), mode)
+        self._client.mkdir(path, mode)
 
     def rmdir(self, path):
         """
         :param path: path to the directory that should be removed
         :return: None
         """
-        self._client.rmdir(six.text_type(path))
+        self._client.rmdir(path)
 
     def remove(self, path):
         """
         :param path: path to the file that should be removed
         """
-        self._client.unlink(six.text_type(path))
+        self._client.unlink(path)
 
     def close(self):
         self._client = None
@@ -382,10 +377,6 @@ class SFTPStore(DataStore):
 
 class ERDA:
     url = "io.erda.dk"
-
-
-class IDMC:
-    url = "io.idmc.dk"
 
 
 class ERDASftpShare(SFTPStore):
@@ -417,31 +408,6 @@ class ERDAShare(ERDASftpShare):
         https://erda.dk/wsgi-bin/sharelink.py.
         """
         super(ERDAShare, self).__init__(share_link, share_link)
-
-
-# TODO -> cleanup duplication
-class IDMCSSHFSShare(SSHFSStore):
-    def __init__(self, share_link):
-        """
-        :param share_link:
-        This is the sharelink ID that is used to access the datastore,
-        an overview over your sharelinks can be found at,
-        https://erda.dk/wsgi-bin/sharelink.py.
-        """
-        host = "@" + IDMC.url + "/"
-        super(IDMCSSHFSShare, self).__init__(
-            host=host, username=share_link, password=share_link
-        )
-
-
-class IDMCSftpShare(SFTPStore):
-    def __init__(self, username=None, password=None):
-        super(IDMCSftpShare, self).__init__(IDMC.url, username, password)
-
-
-class IDMCShare(IDMCSftpShare):
-    def __init__(self, share_link):
-        super(IDMCShare, self).__init__(share_link, share_link)
 
 
 # class ErdaHome(DataStore):

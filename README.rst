@@ -36,12 +36,11 @@ IO Example
 ----------
 
 ERDA (https://erda.dk) sharelink access with python3 example.
-A likewise sharelink class (IdmcShare) exists for IDMC (https://idmc.dk)
 
 .. code-block:: python
 
   # First import the class that gives you access to the share in question*
-  from mig.io import ERDAShare, IDMCShare
+  from mig.io import ERDAShare
 
   # ERDA Sharelink example
   print("ERDA")
@@ -66,24 +65,4 @@ A likewise sharelink class (IdmcShare) exists for IDMC (https://idmc.dk)
   erda_share.remove('tmp')
 
   print("\n")
-
-  # IDMC Sharelink example
-  print("IDMC")
-  # Open connection to a sharelink
-  idmc_share = IDMCShare('SHARELINKID')
-  # List files/dirs in share
-  print(idmc_share.list())
-
-  # write binary string
-  with idmc_share.open('b_tmp', 'wb') as b_tmp:
-      b_tmp.write(b'sadasdasd')
-
-  # Get a _io.SFTPFileHandle object with automatic close
-  with idmc_share.open('b_tmp', 'rb') as tmp:
-      print(tmp.read())
-
-  # Get a default _io.TextIOWrapper object with manual lifetime
-  file = idmc_share.open('b_tmp', 'rb')
-  print(file.read())
-  file.close()
 
