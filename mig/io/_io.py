@@ -76,9 +76,9 @@ class FileHandle:
 
 class SSHFSStore(DataStore):
     def __init__(self, host=None, username=None, password=None):
-        assert host is not None
-        assert username is not None
-        assert password is not None
+        assert host
+        assert username
+        assert password
         client = fs.open_fs("ssh://" + username + ":" + password + host)
         super(SSHFSStore, self).__init__(client)
 
@@ -114,15 +114,16 @@ class SSHFSStore(DataStore):
         """
         return self._client._sftp.listdir(path)
 
-    def read(self, path):
+    def read(self, path, flag="r"):
         """
         :param file:
         File to be read
         :return:
         a string of the content within file
         """
-        with self._client.open(path) as open_file:
-            return open_file.read()
+
+        with self.open(path, flag) as _file:
+            return _file.read()
 
     def write(self, path, data, flag="a"):
         """
@@ -218,7 +219,7 @@ class SFTPFileHandle(FileHandle):
         """
         self.fh.close()
 
-    def read(self, n=-1):
+    def read(self, n=-1, encoding="utf-8"):
         """
         :param n: amount of bytes to be read, defaults to the entire file
         :return: the content of path, decoded to utf-8 string
@@ -227,10 +228,9 @@ class SFTPFileHandle(FileHandle):
         if "b" in self.flag:
             return self.read_binary(n)
         else:
-            result = self.read_binary(n).decode("utf-8")
-            return result
+            return self.read_binary(n).decode(encoding)
 
-    def write(self, data):
+    def write(self, data, encoding="utf-8"):
         """
         :param path: path to the file that should be created/written to
         :param data: data that should be written to the file, expects binary or str
@@ -238,9 +238,8 @@ class SFTPFileHandle(FileHandle):
         :return: None
         """
         assert "w" in self.flag or "a" in self.flag
-        if type(data) == bytes:
-            self.fh.write(data)
-        elif type(data) == str:
+        if isinstance(data, str):
+            data = bytes(data, encoding)
             self.fh.write(data)
         else:
             self.fh.write(data)
@@ -328,6 +327,24 @@ class SFTPStore(DataStore):
         assert fh is not None
         handle = SFTPFileHandle(fh, path, flag)
         return handle
+
+    def read(path):
+        """
+        :param path: path to file on the sftp end
+        :return: the content of path, decoded to utf-8 string
+        """
+        with self.open(path) as _file:
+            return _file.read()
+
+    def write(self, path, data, flag="w"):
+        """
+        :param path: path to the file that should be created/written to
+        :param data: data that should be written to the file, expects binary or str
+        :param flag: write mode
+        :return: None
+        """
+        with self.open(path, flag) as fh:
+            fh.write(data)
 
     def exists(self, path):
         """
