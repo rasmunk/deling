@@ -75,12 +75,17 @@ class FileHandle:
 
 
 class SSHFSStore(DataStore):
-    def __init__(self, host=None, username=None, password=None):
+    def __init__(self, host=None, username=None, password=None, port="22", path="."):
         assert host
         assert username
         assert password
-        client = fs.open_fs("ssh://" + username + ":" + password + host)
+        client = fs.open_fs(
+            "ssh://" + username + ":" + password + "@" + host + ":" + port + "/" + path
+        )
         super(SSHFSStore, self).__init__(client)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def geturl(self, path):
         return self._client.geturl(path)
@@ -104,7 +109,7 @@ class SSHFSStore(DataStore):
         """
         return self._client.exists(path)
 
-    def list(self, path="."):
+    def listdir(self, path="/"):
         """
         :param path:
         file system path which items will be returned
@@ -112,7 +117,15 @@ class SSHFSStore(DataStore):
         A list of items in the path.
         There is no distinction between files and dirs
         """
-        return self._client._sftp.listdir(path)
+        return self._client.listdir(path)
+
+    def touch(self, path):
+        """
+        :param path:
+        path to the file that should be created
+        :return:
+        """
+        self._client.touch(path)
 
     def read(self, path, flag="r"):
         """
@@ -140,7 +153,7 @@ class SSHFSStore(DataStore):
         """
         :param path: path to the directory that should be created
         """
-        self._client._sftp.mkdir(path, mode)
+        self._client.makedir(path, mode)
 
     def remove(self, path):
         """
@@ -151,6 +164,19 @@ class SSHFSStore(DataStore):
         """
         try:
             self._client.remove(path)
+            return True
+        except ResourceNotFound:
+            return False
+
+    def rmdir(self, path):
+        """
+        :param path:
+        path to the dir that should be removed
+        :return:
+        Bool, whether a dir was removed or not
+        """
+        try:
+            self._client.removedir(path)
             return True
         except ResourceNotFound:
             return False
@@ -173,19 +199,6 @@ class SSHFSStore(DataStore):
         """
         with self._client.openbin(path) as open_file:
             return open_file.read()
-
-    def rmdir(self, path):
-        """
-        :param path:
-        path the dir that should be removed
-        :return:
-        Bool, whether a dir was removed or not
-        """
-        try:
-            self._client._sftp.rmdir(path)
-            return True
-        except ResourceNotFound:
-            return False
 
     def close(self):
         self._client.close()
@@ -285,9 +298,9 @@ class SFTPFileHandle(FileHandle):
 
 
 class SFTPStore(DataStore):
-    def __init__(self, host=None, username=None, password=None):
+    def __init__(self, host=None, username=None, password=None, port="22"):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host, 22))
+        sock.connect((host, port))
         s = Session()
         s.handshake(sock)
         s.userauth_password(username, password)
@@ -324,11 +337,12 @@ class SFTPStore(DataStore):
                 | LIBSSH2_SFTP_S_IROTH
             )
             fh = self._client.open(path, w_flags, mode)
-        assert fh is not None
-        handle = SFTPFileHandle(fh, path, flag)
-        return handle
+        return SFTPFileHandle(fh, path, flag)
 
-    def read(path):
+    def close(self):
+        self._client.close()
+
+    def read(self, path):
         """
         :param path: path to file on the sftp end
         :return: the content of path, decoded to utf-8 string
@@ -388,22 +402,19 @@ class SFTPStore(DataStore):
         """
         self._client.unlink(path)
 
-    def close(self):
-        self._client = None
-
 
 class ERDA:
     url = "io.erda.dk"
 
 
 class ERDASftpShare(SFTPStore):
-    def __init__(self, username=None, password=None):
-        super(ERDASftpShare, self).__init__(ERDA.url, username, password)
+    def __init__(self, username=None, password=None, port="22"):
+        super(ERDASftpShare, self).__init__(ERDA.url, username, password, port=port)
 
 
 # TODO -> cleanup duplication
 class ERDASSHFSShare(SSHFSStore):
-    def __init__(self, share_link):
+    def __init__(self, share_link, port="22"):
         """
         :param share_link:
         This is the sharelink ID that is used to access the datastore,
@@ -412,19 +423,19 @@ class ERDASSHFSShare(SSHFSStore):
         """
         host = "@" + ERDA.url + "/"
         super(ERDASSHFSShare, self).__init__(
-            host=host, username=share_link, password=share_link
+            host=host, username="mountuser", password="Passw0rd!", port=port
         )
 
 
 class ERDAShare(ERDASftpShare):
-    def __init__(self, share_link):
+    def __init__(self, share_link, port="22"):
         """
         :param share_link:
         This is the sharelink ID that is used to access the datastore,
         an overview over your sharelinks can be found at
         https://erda.dk/wsgi-bin/sharelink.py.
         """
-        super(ERDAShare, self).__init__(share_link, share_link)
+        super(ERDAShare, self).__init__("mountuser", "Passw0rd!", port=port)
 
 
 # class ErdaHome(DataStore):

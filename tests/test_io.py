@@ -3,11 +3,7 @@ import sys
 import os
 import _io
 from random import random
-from mig.io import (
-    ERDASSHFSShare,
-    ERDASftpShare,
-    SFTPFileHandle,
-)
+from mig.io import ERDASSHFSShare, ERDASftpShare, SFTPFileHandle, SSHFSStore, SFTPStore
 
 # Test input
 try:
@@ -19,8 +15,101 @@ try:
 except IOError:
     # Travis
     assert "ERDA_TEST_SHARE" in os.environ
-
     sharelinks = {"ERDA_TEST_SHARE": os.environ["ERDA_TEST_SHARE"]}
+
+
+class TestSSHFSStore(unittest.TestCase):
+    def setUp(self):
+        self.share = SSHFSStore(
+            host="127.0.0.1", port="2222", username="mountuser", password="Passw0rd!"
+        )
+        self.seed = str(random())[2:10]
+        self.tmp_file = "".join(["tmp", self.seed])
+        self.write_file = "".join(["write_test", self.seed])
+        self.binary_file = "".join(["binary_test", self.seed])
+        self.dir_path = "".join(["directory", self.seed])
+
+        self.files = [
+            self.tmp_file,
+            self.write_file,
+            self.binary_file,
+            self.write_file,
+        ]
+        self.directories = [self.dir_path]
+
+    def tearDown(self):
+        for f in self.files:
+            if self.share.exists(f):
+                self.share.remove(f)
+
+        for d in self.directories:
+            if self.share.exists(d):
+                self.share.rmdir(d)
+
+        share_content = self.share.list()
+        for f in self.files + self.directories:
+            self.assertNotIn(f, share_content)
+        self.share = None
+
+    def test_make_directory(self):
+        self.share.mkdir(self.dir_path)
+        self.assertIn(self.dir_path, self.share.list())
+        self.share.rmdir(self.dir_path)
+        self.assertNotIn(self.dir_path, self.share.list())
+
+    def test_make_file(self):
+        self.share.touch(self.tmp_file)
+        self.assertIn(self.tmp_file, self.share.list())
+        self.share.remove(self.tmp_file)
+        self.assertNotIn(self.tmp_file, self.share.list())
+
+
+class TestSftpShare(unittest.TestCase):
+    def setUp(self):
+        self.share = SFTPStore(
+            username="mountuser", password="Passw0rd!", port="2222", host="127.0.0.1"
+        )
+        self.seed = str(random())[2:10]
+        self.tmp_file = "".join(["tmp", self.seed])
+        self.write_file = "".join(["write_test", self.seed])
+        self.binary_file = "".join(["binary_test", self.seed])
+        self.dir_path = "".join(["directory", self.seed])
+
+        self.files = [
+            self.tmp_file,
+            self.write_file,
+            self.binary_file,
+            self.write_file,
+        ]
+        self.directories = [self.dir_path]
+
+    def tearDown(self):
+        for f in self.files:
+            if self.share.exists(f):
+                self.share.remove(f)
+
+        for d in self.directories:
+            if self.share.exists(d):
+                self.share.rmdir(d)
+
+        share_content = self.share.list()
+        for f in self.files + self.directories:
+            self.assertNotIn(f, share_content)
+        self.share = None
+
+    def test_make_directory(self):
+        self.share.mkdir(self.dir_path)
+        self.assertIn(self.dir_path, self.share.list())
+        self.share.rmdir(self.dir_path)
+        self.assertNotIn(self.dir_path, self.share.list())
+
+    def test_make_file(self):
+        self.share.write(self.tmp_file, "sddsfsf")
+        self.assertIn(self.tmp_file, self.share.list())
+        self.assertEqual(self.share.read(self.tmp_file), "sddsfsf")
+
+        self.share.remove(self.tmp_file)
+        self.assertNotIn(self.tmp_file, self.share.list())
 
 
 class ERDASSHFSShareTest(unittest.TestCase):
