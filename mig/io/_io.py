@@ -125,7 +125,8 @@ class SSHFSStore(DataStore):
         path to the file that should be created
         :return:
         """
-        self._client.touch(path)
+        with self.open(path, "a") as fh:
+            fh.write()
 
     def read(self, path, flag="r"):
         """
@@ -149,7 +150,7 @@ class SSHFSStore(DataStore):
         with self.open(path, flag) as fh:
             fh.write(data)
 
-    def mkdir(self, path, mode=755):
+    def mkdir(self, path):
         """
         :param path: path to the directory that should be created
         """
