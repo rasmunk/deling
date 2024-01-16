@@ -58,6 +58,10 @@ class DataStore:
 
 class FileHandle:
     @abstractmethod
+    def open(self):
+        pass
+
+    @abstractmethod
     def close(self):
         pass
 
@@ -76,9 +80,6 @@ class FileHandle:
 
 class SSHFSStore(DataStore):
     def __init__(self, host=None, username=None, password=None, port="22", path="."):
-        assert host
-        assert username
-        assert password
         client = fs.open_fs(
             "ssh://" + username + ":" + password + "@" + host + ":" + port + "/" + path
         )
@@ -101,6 +102,12 @@ class SSHFSStore(DataStore):
         a _io.TextIOWrapper object with utf-8 encoding
         """
         return self._client.open(path, flag)
+
+    def openbin(self, path, flag="rb"):
+        return self._client.openbin(path, flag)
+
+    def close(self):
+        self._client.close()
 
     def exists(self, path):
         """
@@ -126,20 +133,32 @@ class SSHFSStore(DataStore):
         :return:
         """
         with self.open(path, "a") as fh:
-            fh.write()
+            fh.write("")
 
-    def read(self, path, flag="r"):
+    def read(self, path, datatype=str):
         """
         :param file:
         File to be read
         :return:
         a string of the content within file
         """
+        if datatype != str and datatype != bytes and datatype != bytearray:
+            raise ValueError(
+                "datatype must be either str, bytes or bytearray, is: {}".format(
+                    datatype
+                )
+            )
 
-        with self.open(path, flag) as _file:
-            return _file.read()
+        if datatype == bytes or datatype == bytearray:
+            with self.openbin(path, "rb") as _file:
+                return _file.read()
 
-    def write(self, path, data, flag="a"):
+        if datatype == str:
+            with self.open(path, "r") as _file:
+                return _file.read()
+        return False
+
+    def write(self, path, data, flag="w"):
         """
         :param path:
         path to the file being written
@@ -147,14 +166,18 @@ class SSHFSStore(DataStore):
         :param flag: write flag, defaults to append
         :return:
         """
+        if isinstance(data, (bytes, bytearray)):
+            with self.openbin(path, flag) as fh:
+                fh.write(data)
+            return True
+        if isinstance(data, (int, float)):
+            with self.open(path, flag) as fh:
+                fh.write(str(data))
+            return True
+
         with self.open(path, flag) as fh:
             fh.write(data)
-
-    def mkdir(self, path):
-        """
-        :param path: path to the directory that should be created
-        """
-        self._client.makedir(path)
+            return True
 
     def remove(self, path):
         """
@@ -182,27 +205,24 @@ class SSHFSStore(DataStore):
         except ResourceNotFound:
             return False
 
-    def list_attr(self, path="."):
+    def mkdir(self, path):
+        """
+        :param path: path to the directory that should be created
+        """
+        try:
+            self._client.makedir(path)
+            return True
+        except ResourceNotFound:
+            return False
+
+    def info(self, path):
         """
         :param path:
         directory path to be listed
         :return:
         A list of .SFTPAttributes objects
         """
-        return self._client._sftp.listdir_attr(path)
-
-    def read_binary(self, path):
-        """
-        :param path:
-        File to be read
-        :return:
-        a binary of the content within file
-        """
-        with self._client.openbin(path) as open_file:
-            return open_file.read()
-
-    def close(self):
-        self._client.close()
+        return self._client.getinfo(path, namespaces=["lstat"])
 
 
 class SFTPFileHandle(FileHandle):
