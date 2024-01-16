@@ -109,7 +109,7 @@ class SSHFSStore(DataStore):
         """
         return self._client.exists(path)
 
-    def listdir(self, path="/"):
+    def listdir(self, path="."):
         """
         :param path:
         file system path which items will be returned
@@ -153,7 +153,7 @@ class SSHFSStore(DataStore):
         """
         :param path: path to the directory that should be created
         """
-        self._client.makedir(path, mode)
+        self._client.makedir(path)
 
     def remove(self, path):
         """

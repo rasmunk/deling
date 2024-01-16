@@ -46,22 +46,22 @@ class TestSSHFSStore(unittest.TestCase):
             if self.share.exists(d):
                 self.share.rmdir(d)
 
-        share_content = self.share.list()
+        share_content = self.share.listdir()
         for f in self.files + self.directories:
             self.assertNotIn(f, share_content)
         self.share = None
 
     def test_make_directory(self):
         self.share.mkdir(self.dir_path)
-        self.assertIn(self.dir_path, self.share.list())
+        self.assertIn(self.dir_path, self.share.listdir())
         self.share.rmdir(self.dir_path)
-        self.assertNotIn(self.dir_path, self.share.list())
+        self.assertNotIn(self.dir_path, self.share.listdir())
 
     def test_make_file(self):
         self.share.touch(self.tmp_file)
-        self.assertIn(self.tmp_file, self.share.list())
+        self.assertIn(self.tmp_file, self.share.listdir())
         self.share.remove(self.tmp_file)
-        self.assertNotIn(self.tmp_file, self.share.list())
+        self.assertNotIn(self.tmp_file, self.share.listdir())
 
 
 class TestSftpShare(unittest.TestCase):
@@ -92,24 +92,24 @@ class TestSftpShare(unittest.TestCase):
             if self.share.exists(d):
                 self.share.rmdir(d)
 
-        share_content = self.share.list()
+        share_content = self.share.listdir()
         for f in self.files + self.directories:
             self.assertNotIn(f, share_content)
         self.share = None
 
     def test_make_directory(self):
         self.share.mkdir(self.dir_path)
-        self.assertIn(self.dir_path, self.share.list())
+        self.assertIn(self.dir_path, self.share.listdir())
         self.share.rmdir(self.dir_path)
-        self.assertNotIn(self.dir_path, self.share.list())
+        self.assertNotIn(self.dir_path, self.share.listdir())
 
     def test_make_file(self):
         self.share.write(self.tmp_file, "sddsfsf")
-        self.assertIn(self.tmp_file, self.share.list())
+        self.assertIn(self.tmp_file, self.share.listdir())
         self.assertEqual(self.share.read(self.tmp_file), "sddsfsf")
 
         self.share.remove(self.tmp_file)
-        self.assertNotIn(self.tmp_file, self.share.list())
+        self.assertNotIn(self.tmp_file, self.share.listdir())
 
 
 class ERDASSHFSShareTest(unittest.TestCase):
@@ -142,7 +142,7 @@ class ERDASSHFSShareTest(unittest.TestCase):
             if self.share.exists(d):
                 self.share.rmdir(d)
 
-        share_content = self.share.list()
+        share_content = self.share.listdir()
         for f in self.files + self.directories:
             self.assertNotIn(f, share_content)
         self.share = None
@@ -150,7 +150,7 @@ class ERDASSHFSShareTest(unittest.TestCase):
     def test_share(self):
         # List files/dirs in share
         self.share.write(self.tmp_file, "sddsfsf")
-        self.assertIn(self.tmp_file, self.share.list())
+        self.assertIn(self.tmp_file, self.share.listdir())
         # Read file directly as string
         # self.assertEqual(self.share.read(self.tmp_file), "sddsfsf")
         # Read file directly as binary
@@ -193,7 +193,7 @@ class ERDASSHFSShareTest(unittest.TestCase):
     def test_mkdir(self):
         self.assertFalse(self.share.exists(self.dir_path))
         self.share.mkdir(self.dir_path)
-        self.assertIn(self.dir_path, self.share.list())
+        self.assertIn(self.dir_path, self.share.listdir())
 
 
 class ERDASFTPShareTest(unittest.TestCase):
@@ -229,7 +229,7 @@ class ERDASFTPShareTest(unittest.TestCase):
             if self.share.exists(d):
                 self.share.rmdir(d)
 
-        share_content = self.share.list()
+        share_content = self.share.listdir()
         for f in self.files + self.directories:
             self.assertNotIn(f, share_content)
         self.share = None
@@ -238,7 +238,7 @@ class ERDASFTPShareTest(unittest.TestCase):
         tmp_share = self.share.open(self.tmp_file, "w")
         tmp_share.write(bytes("sddsfsf", "utf-8"))
         tmp_share.close()
-        self.assertIn(self.tmp_file, self.share.list())
+        self.assertIn(self.tmp_file, self.share.listdir())
 
         # Read file directly as string
         tmp_share = self.share.open(self.tmp_file, "r")
@@ -306,7 +306,7 @@ class ERDASFTPShareTest(unittest.TestCase):
     def test_mkdir(self):
         self.assertFalse(self.share.exists(self.dir_path))
         self.share.mkdir(self.dir_path)
-        self.assertIn(self.dir_path, self.share.list())
+        self.assertIn(self.dir_path, self.share.listdir())
 
 
 class ShareSFTPSeekOffsetTest(unittest.TestCase):
@@ -331,7 +331,7 @@ class ShareSFTPSeekOffsetTest(unittest.TestCase):
             if self.share.exists(f):
                 self.share.remove(f)
 
-        share_content = self.share.list()
+        share_content = self.share.listdir()
         for f in self.files:
             self.assertNotIn(f, share_content)
         self.share = None
@@ -434,7 +434,7 @@ class ShareSSHFSSeekOffsetTest(unittest.TestCase):
             if self.share.exists(f):
                 self.share.remove(f)
 
-        share_content = self.share.list()
+        share_content = self.share.listdir()
         for f in self.files:
             self.assertNotIn(f, share_content)
         self.share = None
