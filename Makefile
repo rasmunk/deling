@@ -1,4 +1,4 @@
-PACKAGE_NAME=mig-utils
+PACKAGE_NAME=deling
 PACKAGE_NAME_FORMATTED=$(subst -,_,$(PACKAGE_NAME))
 ARGS=
 
@@ -25,11 +25,7 @@ dist:
 distclean:
 	rm -fr dist build $(PACKAGE_NAME).egg-info $(PACKAGE_NAME_FORMATTED).egg-info
 
-maintainer-clean:
-	@echo 'This command is intended for maintainers to use; it'
-	@echo 'deletes files that may need special tools to rebuild.'
-	$(MAKE) distclean
-	$(MAKE) venv-clean
+maintainer-clean: distclean clean venv-clean
 
 install-dev:
 	$(VENV)/pip install -r requirements-dev.txt
@@ -51,7 +47,7 @@ uninstall:
 
 installcheck:
 	$(VENV)/pip install -r tests/requirements.txt
-# mig_utils must be installed into the relative venv before it can be tested
+# deling must be installed into the relative venv before it can be tested
 	. $(VENV)/activate; pip install .
 
 uninstallcheck:

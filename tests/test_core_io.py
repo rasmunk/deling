@@ -2,7 +2,8 @@ import unittest
 import os
 import sys
 from random import random
-from mig.io import ERDASFTPShare, SFTPFileHandle, SSHFSStore, SFTPStore
+from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
+from deling.io.datastores.erda import ERDASFTPShare
 
 
 class TestDataStoreCases:

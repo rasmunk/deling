@@ -21,22 +21,22 @@ with open(os.path.join(here, "version.py")) as f:
 long_description = open("README.rst").read()
 
 setup(
-    name="mig-utils",
+    name="deling",
     version=version_ns["__version__"],
-    description="Minimum Intrusion Grid (MiG) Utilities library",
+    description="A library for accessing and storing data in remote storage systems",
     long_description=long_description,
     author="Rasmus Munk",
     author_email="munk1@live.dk",
     license="MIT",
-    keywords="Staging Data Job Input/Output",
-    url="https://github.com/rasmunk/mig_utils",
+    keywords="Data IO, Staging data, Data transfer, Data storage, Data management",
+    url="https://github.com/rasmunk/deling",
     packages=find_packages(),
     install_requires=read_req("requirements.txt"),
     extras_require={
         "test": read_req("tests/requirements.txt"),
         "dev": read_req("requirements-dev.txt"),
     },
-    project_urls={"Source Code": "https://github.com/rasmunk/mig_utils"},
+    project_urls={"Source Code": "https://github.com/rasmunk/deling"},
     classifiers=[
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
