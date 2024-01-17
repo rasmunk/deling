@@ -379,6 +379,8 @@ class ERDASFTPShareSeekOffsetTest(TestDataStoreSeekOffsetCases, unittest.TestCas
             assert "ERDA_TEST_SHARE" in os.environ
             sharelinks = {"ERDA_TEST_SHARE": os.environ["ERDA_TEST_SHARE"]}
 
+        # TODO, ensure that no more than 16 concurrent sessions are open
+        # since ERDA only allows 16 concurrent sessions per user
         self.share = ERDASFTPShare(
             username=sharelinks["ERDA_TEST_SHARE"],
             password=sharelinks["ERDA_TEST_SHARE"],
@@ -406,6 +408,8 @@ class ERDASFTPShareTest(TestDataStoreCases, unittest.TestCase):
             assert "ERDA_TEST_SHARE" in os.environ
             sharelinks = {"ERDA_TEST_SHARE": os.environ["ERDA_TEST_SHARE"]}
 
+        # TODO, ensure that no more than 16 concurrent sessions are open
+        # since ERDA only allows 16 concurrent sessions per user
         self.share = ERDASFTPShare(
             username=sharelinks["ERDA_TEST_SHARE"],
             password=sharelinks["ERDA_TEST_SHARE"],
