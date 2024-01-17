@@ -4,7 +4,7 @@ deling
 
 
 
-deling is a set of utilities for accessing and writing data in remote data storages.
+deling is a set of utilities for accessing and writing data across remote data storages.
 
 Installation
 ------------
