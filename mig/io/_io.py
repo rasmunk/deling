@@ -36,7 +36,7 @@ class DataStore:
         pass
 
     @abstractmethod
-    def list(self, path):
+    def listdir(self, path):
         pass
 
     @abstractmethod
@@ -80,6 +80,8 @@ class FileHandle:
 
 class SSHFSStore(DataStore):
     def __init__(self, host=None, username=None, password=None, port="22", path="."):
+        if isinstance(port, int):
+            port = str(port)
         client = fs.open_fs(
             "ssh://" + username + ":" + password + "@" + host + ":" + port + "/" + path
         )
@@ -158,7 +160,7 @@ class SSHFSStore(DataStore):
                 return _file.read()
         return False
 
-    def write(self, path, data, flag="w"):
+    def write(self, path, data):
         """
         :param path:
         path to the file being written
@@ -167,17 +169,18 @@ class SSHFSStore(DataStore):
         :return:
         """
         if isinstance(data, (bytes, bytearray)):
-            with self.openbin(path, flag) as fh:
+            with self.openbin(path, "wb") as fh:
                 fh.write(data)
             return True
         if isinstance(data, (int, float)):
-            with self.open(path, flag) as fh:
+            with self.open(path, "w") as fh:
                 fh.write(str(data))
             return True
 
-        with self.open(path, flag) as fh:
+        with self.open(path, "w") as fh:
             fh.write(data)
             return True
+        return False
 
     def remove(self, path):
         """
@@ -273,10 +276,13 @@ class SFTPFileHandle(FileHandle):
         """
         assert "w" in self.flag or "a" in self.flag
         if isinstance(data, str):
-            data = bytes(data, encoding)
-            self.fh.write(data)
-        else:
-            self.fh.write(data)
+            data = bytes(data, encoding=encoding)
+            return self.fh.write(data)
+        if isinstance(data, bytearray):
+            return self.fh.write(bytes(data))
+        if not isinstance(data, bytes):
+            raise TypeError("data must be bytes before it can be written")
+        return self.fh.write(data)
 
     def seek(self, offset, whence=0):
         """Seek file to a given offset
@@ -319,7 +325,9 @@ class SFTPFileHandle(FileHandle):
 
 
 class SFTPStore(DataStore):
-    def __init__(self, host=None, username=None, password=None, port="22"):
+    def __init__(self, host=None, username=None, password=None, port=22):
+        if isinstance(port, str):
+            port = int(port)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
         s = Session()
@@ -363,23 +371,69 @@ class SFTPStore(DataStore):
     def close(self):
         self._client.close()
 
-    def read(self, path):
+    def read(self, path, datatype=str):
         """
         :param path: path to file on the sftp end
         :return: the content of path, decoded to utf-8 string
         """
-        with self.open(path) as _file:
-            return _file.read()
 
-    def write(self, path, data, flag="w"):
+        if datatype != str and datatype != bytes and datatype != bytearray:
+            raise ValueError(
+                "datatype must be either str, bytes or bytearray, is: {}".format(
+                    datatype
+                )
+            )
+
+        if datatype == bytes or datatype == bytearray:
+            with self.open(path, "rb") as _file:
+                return _file.read()
+
+        if datatype == str:
+            with self.open(path, "r") as _file:
+                return _file.read()
+        return False
+
+    def write(self, path, data):
         """
         :param path: path to the file that should be created/written to
         :param data: data that should be written to the file, expects binary or str
         :param flag: write mode
         :return: None
         """
-        with self.open(path, flag) as fh:
+        if isinstance(data, (bytes, bytearray)):
+            with self.open(path, "wb") as fh:
+                fh.write(data)
+            return True
+
+        if isinstance(data, (int, float)):
+            with self.open(path, "w") as fh:
+                fh.write(str(data))
+            return True
+
+        with self.open(path, "w") as fh:
             fh.write(data)
+            return True
+
+    def append(self, path, data):
+        """
+        :param path: path to the file that should be created/written to
+        :param data: data that should be written to the file, expects binary or str
+        :param flag: write mode
+        :return: None
+        """
+        if isinstance(data, (bytes, bytearray)):
+            with self.open(path, "ab") as fh:
+                fh.write(data)
+            return True
+
+        if isinstance(data, (int, float)):
+            with self.open(path, "a") as fh:
+                fh.write(str(data))
+            return True
+
+        with self.open(path, "a") as fh:
+            fh.write(data)
+            return True
 
     def exists(self, path):
         """
@@ -395,7 +449,7 @@ class SFTPStore(DataStore):
             return False
         return False
 
-    def list(self, path="."):
+    def listdir(self, path="."):
         """
         :param path: path to the directory which content should be listed
         :return: list of str, of items in the path directory
@@ -403,25 +457,46 @@ class SFTPStore(DataStore):
         with self._client.opendir(path) as fh:
             return [name.decode("utf-8") for size, name, attrs in fh.readdir()]
 
+    def touch(self, path):
+        """
+        :param path:
+        path to the file that should be created
+        :return:
+        """
+        with self.open(path, "a") as fh:
+            fh.write("")
+
     def mkdir(self, path, mode=755, **kwargs):
         """
         :param path: path to the directory that should be created
         :return: Boolean
         """
-        self._client.mkdir(path, mode)
+        try:
+            self._client.mkdir(path, mode)
+            return True
+        except Exception:
+            return False
 
     def rmdir(self, path):
         """
         :param path: path to the directory that should be removed
         :return: None
         """
-        self._client.rmdir(path)
+        try:
+            self._client.rmdir(path)
+            return True
+        except Exception:
+            return False
 
     def remove(self, path):
         """
         :param path: path to the file that should be removed
         """
-        self._client.unlink(path)
+        try:
+            self._client.unlink(path)
+            return True
+        except Exception:
+            return False
 
 
 class ERDA:
