@@ -174,7 +174,7 @@ class TestSSHFSStore(unittest.TestCase):
         self.assertTrue(self.share.write(append_file, "sddsfsf"))
         self.assertIn(append_file, self.share.listdir())
         self.assertEqual(self.share.read(append_file), "sddsfsf")
-        self.assertTrue(self.share.write(append_file, "sddsfsf"))
+        self.assertTrue(self.share.append(append_file, "sddsfsf"))
         self.assertEqual(self.share.read(append_file), "sddsfsfsddsfsf")
         self.assertTrue(self.share.remove(append_file))
         self.assertNotIn(append_file, self.share.listdir())

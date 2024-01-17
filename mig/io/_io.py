@@ -182,6 +182,27 @@ class SSHFSStore(DataStore):
             return True
         return False
 
+    def append(self, path, data):
+        """
+        :param path:
+        path to the file being written
+        :param data: data to being written
+        :return:
+        """
+        if isinstance(data, (bytes, bytearray)):
+            with self.openbin(path, "ab") as fh:
+                fh.write(data)
+            return True
+
+        if isinstance(data, (int, float)):
+            with self.open(path, "a") as fh:
+                fh.write(str(data))
+            return True
+
+        with self.open(path, "a") as fh:
+            fh.write(data)
+            return True
+
     def remove(self, path):
         """
         :param path:
