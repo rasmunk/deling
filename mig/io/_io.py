@@ -103,9 +103,12 @@ class SSHFSStore(DataStore):
         :return:
         a _io.TextIOWrapper object with utf-8 encoding
         """
+
+        if "b" in flag:
+            return self._openbin(path, flag)
         return self._client.open(path, flag)
 
-    def openbin(self, path, flag="rb"):
+    def _openbin(self, path, flag="rb"):
         return self._client.openbin(path, flag)
 
     def close(self):
@@ -152,7 +155,7 @@ class SSHFSStore(DataStore):
             )
 
         if datatype == bytes or datatype == bytearray:
-            with self.openbin(path, "rb") as _file:
+            with self.open(path, "rb") as _file:
                 return _file.read()
 
         if datatype == str:
@@ -169,7 +172,7 @@ class SSHFSStore(DataStore):
         :return:
         """
         if isinstance(data, (bytes, bytearray)):
-            with self.openbin(path, "wb") as fh:
+            with self.open(path, "wb") as fh:
                 fh.write(data)
             return True
         if isinstance(data, (int, float)):
@@ -190,7 +193,7 @@ class SSHFSStore(DataStore):
         :return:
         """
         if isinstance(data, (bytes, bytearray)):
-            with self.openbin(path, "ab") as fh:
+            with self.open(path, "ab") as fh:
                 fh.write(data)
             return True
 
@@ -524,27 +527,14 @@ class ERDA:
     url = "io.erda.dk"
 
 
-class ERDASftpShare(SFTPStore):
+class ERDASFTPShare(SFTPStore):
     def __init__(self, username=None, password=None, port="22"):
-        super(ERDASftpShare, self).__init__(ERDA.url, username, password, port=port)
-
-
-# TODO -> cleanup duplication
-class ERDASSHFSShare(SSHFSStore):
-    def __init__(self, share_link, port="22"):
-        """
-        :param share_link:
-        This is the sharelink ID that is used to access the datastore,
-        an overview over your sharelinks can be found at
-        https://erda.dk/wsgi-bin/sharelink.py.
-        """
-        host = "@" + ERDA.url + "/"
-        super(ERDASSHFSShare, self).__init__(
-            host=host, username="mountuser", password="Passw0rd!", port=port
+        super(ERDASFTPShare, self).__init__(
+            host=ERDA.url, username=username, password=password, port=port
         )
 
 
-class ERDAShare(ERDASftpShare):
+class ERDAShare(ERDASFTPShare):
     def __init__(self, share_link, port="22"):
         """
         :param share_link:
@@ -552,12 +542,14 @@ class ERDAShare(ERDASftpShare):
         an overview over your sharelinks can be found at
         https://erda.dk/wsgi-bin/sharelink.py.
         """
-        super(ERDAShare, self).__init__("mountuser", "Passw0rd!", port=port)
+        super(ERDAShare, self).__init__(
+            username=share_link, password=share_link, port=port
+        )
 
 
 # class ErdaHome(DataStore):
 #     _target = ERDA.url
-#
+
 #     # TODO -> switch over to checking the OPENID session instead of username/password
 #     def __init__(self, username, password):
 #         """
