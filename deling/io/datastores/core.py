@@ -232,14 +232,36 @@ class SSHFSStore(DataStore):
 
 
 class SFTPStore(DataStore):
-    def __init__(self, host=None, username=None, password=None, port=22):
+    def __init__(self, host, port, authenticator):
         if isinstance(port, str):
             port = int(port)
+        if not authenticator.is_prepared and not authenticator.prepare(host):
+            raise ValueError("Authenticator could not be prepared")
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
         s = Session()
         s.handshake(sock)
-        s.userauth_password(username, password)
+        # Use private key authentication if a private key is provided
+        if authenticator.credentials.private_key:
+            s.userauth_publickey_frommemory(
+                authenticator.credentials.username,
+                authenticator.credentials.private_key,
+                authenticator.credentials.password,
+            )
+        elif authenticator.credentials.private_key_file:
+            s.userauth_publickey_fromfile(
+                authenticator.credentials.username,
+                authenticator.credentials.private_key_file,
+                authenticator.credentials.password,
+            )
+        elif authenticator.credentials.password:
+            s.userauth_password(
+                authenticator.credentials.username, authenticator.credentials.password
+            )
+        else:
+            raise ValueError("No authentication method provided")
+
         s.open_session()
         client = s.sftp_init()
         super(SFTPStore, self).__init__(client=client)

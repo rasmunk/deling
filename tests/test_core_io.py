@@ -2,6 +2,7 @@ import unittest
 import os
 import sys
 from random import random
+from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
 
@@ -326,7 +327,9 @@ class SSHFSStoreTest(TestDataStoreCases, unittest.TestCase):
 class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
     def setUp(self):
         self.share = SFTPStore(
-            username="mountuser", password="Passw0rd!", port="2222", host="127.0.0.1"
+            host="127.0.0.1",
+            port="2222",
+            authenticator=SSHAuthenticator(username="mountuser", password="Passw0rd!"),
         )
         self.seed = str(random())[2:10]
 
@@ -337,7 +340,9 @@ class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
 class SFTPStoreSeekOffsetTest(TestDataStoreSeekOffsetCases, unittest.TestCase):
     def setUp(self):
         self.share = SFTPStore(
-            username="mountuser", password="Passw0rd!", port="2222", host="127.0.0.1"
+            host="127.0.0.1",
+            port="2222",
+            authenticator=SSHAuthenticator(username="mountuser", password="Passw0rd!"),
         )
         super().setUp()
 
