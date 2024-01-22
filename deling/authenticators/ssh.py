@@ -1,6 +1,15 @@
 import os
 import paramiko
-from deling.utils.io import acquire_lock, release_lock, write, remove_content_from_file
+from io import StringIO
+from deling.utils.io import (
+    acquire_lock,
+    release_lock,
+    write,
+    remove_content_from_file,
+    load,
+    chmod,
+    remove,
+)
 
 default_ssh_path = os.path.join("~", ".ssh")
 
@@ -80,7 +89,7 @@ class SSHAuthenticator:
     def get_authorized(self, path=None):
         if not path:
             path = os.path.join(os.path.expanduser("~", ".ssh", "authorized_keys"))
-        content = [key.replace("\n", "") for key in fileload(path, readlines=True)]
+        content = [key.replace("\n", "") for key in load(path, readlines=True)]
         return content
 
     def remove_from_authorized(self, path=None):
@@ -249,21 +258,21 @@ class SSHCredentials:
 
     def load(self):
         if self.private_key_file:
-            self.private_key = fileload(self.private_key_file)
+            self.private_key = load(self.private_key_file)
         if self.public_key_file:
-            self.public_key = fileload(self.public_key_file)
+            self.public_key = load(self.public_key_file)
         if self.certificate_file:
-            self.certificate_file = fileload(self.certificate_file)
+            self.certificate_file = load(self.certificate_file)
 
     def remove(self):
         if self.private_key_file and os.path.exists(self.private_key_file):
-            if not fileremove(self.private_key_file):
+            if not remove(self.private_key_file):
                 return False
         if self.public_key_file and os.path.exists(self.public_key_file):
-            if not fileremove(self.public_key_file):
+            if not remove(self.public_key_file):
                 return False
         if self.certificate_file and os.path.exists(self.certificate_file):
-            if not fileremove(self.certificate_file):
+            if not remove(self.certificate_file):
                 return False
         return True
 
@@ -305,14 +314,11 @@ def ssh_credentials_exists(
 def load_ssh_credentials(
     ssh_dir_path=default_ssh_path,
     key_name="id_rsa",
-    check_certificate=False,
-    size=2048,
     **kwargs,
 ):
     if not ssh_credentials_exists(
         ssh_dir_path=ssh_dir_path,
         key_name=key_name,
-        check_certificate=check_certificate,
         **kwargs,
     ):
         return None
@@ -329,29 +335,14 @@ def load_ssh_credentials(
         public_key=public_key,
         public_key_file=public_key_file,
     )
-
-    if check_certificate:
-        certificate_file = os.path.join(ssh_dir_path, "{}-cert.pub".format(key_name))
-        certificate = load_certificate(certificate_file)
-        if certificate:
-            credential_kwargs.update(
-                {"certificate_file": certificate_file, "certificate": certificate}
-            )
-
     return SSHCredentials(**credential_kwargs)
 
 
 def gen_ssh_credentials(
     ssh_dir_path=default_ssh_path,
     key_name="id_rsa",
-    size=2048,
-    create_certificate=False,
-    certificate_kwargs=None,
-    **kwargs,
+    size=4096
 ):
-    if not certificate_kwargs:
-        certificate_kwargs = {}
-
     private_key, public_key = gen_rsa_ssh_key_pair(size=size)
     private_key_file = os.path.join(ssh_dir_path, key_name)
     public_key_file = os.path.join(ssh_dir_path, "{}.pub".format(key_name))
@@ -362,66 +353,27 @@ def gen_ssh_credentials(
         public_key=public_key,
         public_key_file=public_key_file,
     )
-
-    credentials = SSHCredentials(**credential_kwargs)
-
-    # For now the make_certificate function requires that the credentials exists
-    # in the FS
-    if create_certificate:
-        credentials.store()
-        if "identity" not in certificate_kwargs:
-            certificate_kwargs["identity"] = "UserIdentity"
-        certificate_file = os.path.join(ssh_dir_path, "{}-cert.pub".format(key_name))
-        if make_certificate(
-            certificate_kwargs["identity"], private_key_file, public_key_file
-        ):
-            credential_kwargs["certificate_file"] = certificate_file
-            credential_kwargs["certificate"] = fileload(certificate_file)
-            credentials.certificate = credential_kwargs["certificate"]
-            credentials.certificate_file = credential_kwargs["certificate_file"]
-        else:
-            print("Failed to create certificate file: {}".format(certificate_file))
-    return credentials
+    return SSHCredentials(**credential_kwargs)
 
 
-def gen_ssh_credentials(
-    ssh_dir_path=default_ssh_path,
-    key_name="id_rsa",
-    size=2048,
-    create_certificate=False,
-    certificate_kwargs=None,
-    **kwargs,
-):
-    if not certificate_kwargs:
-        certificate_kwargs = {}
+def gen_rsa_ssh_key_pair(size=4096):
+    rsa_key = paramiko.RSAKey.generate(size)
+    string_io_obj = StringIO()
+    rsa_key.write_private_key(string_io_obj)
 
-    private_key, public_key = gen_rsa_ssh_key_pair(size=size)
+    private_key = string_io_obj.getvalue()
+    public_key = ("ssh-rsa %s" % (rsa_key.get_base64())).strip()
+    return private_key, public_key
+
+
+def load_rsa_key_pair(ssh_dir_path=default_ssh_path, key_name="id_rsa"):
     private_key_file = os.path.join(ssh_dir_path, key_name)
+    if not os.path.exists(private_key_file):
+        return False, False
+    private_key = load(private_key_file)
+
     public_key_file = os.path.join(ssh_dir_path, "{}.pub".format(key_name))
-
-    credential_kwargs = dict(
-        private_key=private_key,
-        private_key_file=private_key_file,
-        public_key=public_key,
-        public_key_file=public_key_file,
-    )
-
-    credentials = SSHCredentials(**credential_kwargs)
-
-    # For now the make_certificate function requires that the credentials exists
-    # in the FS
-    if create_certificate:
-        credentials.store()
-        if "identity" not in certificate_kwargs:
-            certificate_kwargs["identity"] = "UserIdentity"
-        certificate_file = os.path.join(ssh_dir_path, "{}-cert.pub".format(key_name))
-        if make_certificate(
-            certificate_kwargs["identity"], private_key_file, public_key_file
-        ):
-            credential_kwargs["certificate_file"] = certificate_file
-            credential_kwargs["certificate"] = fileload(certificate_file)
-            credentials.certificate = credential_kwargs["certificate"]
-            credentials.certificate_file = credential_kwargs["certificate_file"]
-        else:
-            print("Failed to create certificate file: {}".format(certificate_file))
-    return credentials
+    if not os.path.exists(public_key_file):
+        return False, False
+    public_key = load(public_key_file)
+    return private_key, public_key
