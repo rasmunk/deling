@@ -1,3 +1,4 @@
+import os
 import fs
 import socket
 from abc import abstractmethod
@@ -395,16 +396,24 @@ class SFTPStore(DataStore):
         with self.open(path, "a") as fh:
             fh.write("")
 
-    def mkdir(self, path, mode=755, **kwargs):
+    def mkdir(self, path, mode=755, recursive=False, **kwargs):
         """
         :param path: path to the directory that should be created
         :return: Boolean
         """
-        try:
-            self._client.mkdir(path, mode)
-            return True
-        except Exception:
-            return False
+        split_path = path.split(os.sep) if recursive else [path]
+
+        if split_path[0] == '':
+            split_path[0] = os.sep
+        previous_dir = ''
+        for path_part in split_path:
+            current_path = os.path.join(previous_dir, path_part)
+            try:
+                self._client.mkdir(current_path, mode)
+            except Exception:
+                return False
+            previous_dir = current_path
+        return True
 
     def rmdir(self, path):
         """

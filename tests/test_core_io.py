@@ -85,6 +85,37 @@ class TestDataStoreCases:
         self.assertTrue(self.share.rmdir(make_directory))
         self.assertNotIn(make_directory, self.share.listdir())
 
+    def test_make_nested_directory(self):
+        make_nested_directory = "nested_directory_{}".format(self.seed)
+        nested_directory = os.path.join(make_nested_directory, "nested")
+        self.assertTrue(self.share.mkdir(nested_directory, recursive=True))
+        self.assertIn(make_nested_directory, self.share.listdir())
+        self.assertIn(nested_directory, self.share.listdir(make_nested_directory))
+        self.assertTrue(self.share.rmdir(nested_directory))
+        self.assertNotIn(nested_directory, self.share.listdir(make_nested_directory))
+        self.assertTrue(self.share.rmdir(make_nested_directory))
+        self.assertNotIn(make_nested_directory, self.share.listdir())
+
+    def test_make_absolute_nested_directory(self):
+        make_nested_directory = "/tmp/tests/nested_directory_{}".format(self.seed)
+        nested_directory = os.path.join(make_nested_directory, "nested")
+        self.assertTrue(self.share.mkdir(nested_directory, recursive=True))
+        self.assertIn(make_nested_directory, self.share.listdir())
+        self.assertIn(nested_directory, self.share.listdir(make_nested_directory))
+        self.assertTrue(self.share.rmdir(nested_directory))
+        self.assertNotIn(nested_directory, self.share.listdir(make_nested_directory))
+        self.assertTrue(self.share.rmdir(make_nested_directory))
+        self.assertNotIn(make_nested_directory, self.share.listdir())
+
+    def test_remove_nested_directory(self):
+        remove_nested_directory = "remove_nested_directory_{}".format(self.seed)
+        nested_directory = os.path.join(remove_nested_directory, "nested")
+        self.assertTrue(self.share.mkdir(nested_directory, recursive=True))
+        self.assertIn(remove_nested_directory, self.share.listdir())
+        self.assertIn(nested_directory, self.share.listdir(remove_nested_directory))
+        self.assertTrue(self.share.rmdir(remove_nested_directory))
+        self.assertNotIn(remove_nested_directory, self.share.listdir())
+
     def test_directory_exists(self):
         make_directory = "make_directory_exists_{}".format(self.seed)
         self.assertTrue(self.share.mkdir(make_directory))
