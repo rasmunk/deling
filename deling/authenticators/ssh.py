@@ -54,9 +54,9 @@ class SSHAuthenticator:
         host_key = transport.get_remote_server_key()
         return host_key
 
-    def prepare(self, endpoint):
+    def prepare(self, endpoint, port=22):
         # Get the host key of the target endpoint
-        host_key = self.get_host_key(endpoint)
+        host_key = self.get_host_key(endpoint, port=port)
         if self.add_to_known_hosts(endpoint, host_key):
             self._is_prepared = True
         return self.is_prepared
@@ -338,11 +338,7 @@ def load_ssh_credentials(
     return SSHCredentials(**credential_kwargs)
 
 
-def gen_ssh_credentials(
-    ssh_dir_path=default_ssh_path,
-    key_name="id_rsa",
-    size=4096
-):
+def gen_ssh_credentials(ssh_dir_path=default_ssh_path, key_name="id_rsa", size=4096):
     private_key, public_key = gen_rsa_ssh_key_pair(size=size)
     private_key_file = os.path.join(ssh_dir_path, key_name)
     public_key_file = os.path.join(ssh_dir_path, "{}.pub".format(key_name))

@@ -235,7 +235,7 @@ class SFTPStore(DataStore):
     def __init__(self, host, port, authenticator):
         if isinstance(port, str):
             port = int(port)
-        if not authenticator.is_prepared and not authenticator.prepare(host):
+        if not authenticator.is_prepared and not authenticator.prepare(host, port=port):
             raise ValueError("Authenticator could not be prepared")
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
