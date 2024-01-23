@@ -281,8 +281,11 @@ class SFTPStore(DataStore):
         :return: SFTPHandle, https://github.com/ParallelSSH/ssh2-python
         /blob/master/ssh2/sftp_handle.pyx
         """
+
         if flag == "r" or flag == "rb":
-            fh = self._client.open(path, LIBSSH2_FXF_READ, LIBSSH2_SFTP_S_IWUSR)
+            r_flags = LIBSSH2_FXF_READ
+            mode = LIBSSH2_SFTP_S_IWUSR
+            fh = self._client.open(path, r_flags, mode)
         else:
             w_flags = None
             if flag == "w" or flag == "wb":
@@ -297,6 +300,13 @@ class SFTPStore(DataStore):
             )
             fh = self._client.open(path, w_flags, mode)
         return SFTPFileHandle(fh, path, flag)
+
+    def _opendir(self, path):
+        """
+        :param path: path to directory on the sftp end
+        :return: SFTPHandle,
+        """
+        return self._client.opendir(path)
 
     def close(self):
         self._client.close()
@@ -379,12 +389,21 @@ class SFTPStore(DataStore):
             return False
         return False
 
-    def listdir(self, path="."):
+    def listdir(self, path=None):
         """
         :param path: path to the directory which content should be listed
         :return: list of str, of items in the path directory
         """
-        with self._client.opendir(path) as fh:
+        if not path:
+            # If no path is provided, list the current directory
+            path = "."
+        else:
+            # If the path is not the current directory and does not start with a slash
+            # Discover the absolute path since self._opendir does not support relative paths
+            if path[0] != os.sep:
+                path = self.realpath(path)
+
+        with self._opendir(path) as fh:
             return [name.decode("utf-8") for size, name, attrs in fh.readdir()]
 
     def touch(self, path):
@@ -396,35 +415,64 @@ class SFTPStore(DataStore):
         with self.open(path, "a") as fh:
             fh.write("")
 
-    def mkdir(self, path, mode=755, recursive=False, **kwargs):
+    def mkdir(self, path, mode=0o755, recursive=False, **kwargs):
         """
         :param path: path to the directory that should be created
         :return: Boolean
         """
         split_path = path.split(os.sep) if recursive else [path]
 
-        if split_path[0] == '':
+        if split_path[0] == "":
             split_path[0] = os.sep
-        previous_dir = ''
+        previous_dir = ""
         for path_part in split_path:
             current_path = os.path.join(previous_dir, path_part)
-            try:
-                self._client.mkdir(current_path, mode)
-            except Exception:
-                return False
+            if not self.exists(current_path):
+                try:
+                    self._client.mkdir(current_path, mode)
+                except Exception:
+                    error = self._client.last_error()
+                    print(
+                        "Failed to create path: {} - error_code: {}".format(
+                            current_path, error
+                        )
+                    )
+                    return False
             previous_dir = current_path
         return True
 
-    def rmdir(self, path):
+    def _rmdir(self, path):
         """
         :param path: path to the directory that should be removed
-        :return: None
         """
         try:
             self._client.rmdir(path)
             return True
         except Exception:
+            error = self._client.last_error()
+            print("Failed to remove path: {} - error_code: {}".format(path, error))
             return False
+        return False
+
+    def rmdir(self, path, recursive=False):
+        """
+        :param path: path to the directory that should be removed
+        :return: None
+        """
+        if not recursive:
+            return self._rmdir(path)
+
+        # TODO, update this to be able to recusively remove all
+        # non specified files and directories as would be expected
+        # from a recursive removal
+        if os.sep in path:
+            split_path = path.split(os.sep)
+            new_path = os.sep.join(split_path[:-1])
+            if not self._rmdir(path):
+                return False
+            return self.rmdir(new_path, recursive=True)
+        else:
+            return self.rmdir(path, recursive=False)
 
     def remove(self, path):
         """
@@ -432,6 +480,26 @@ class SFTPStore(DataStore):
         """
         try:
             self._client.unlink(path)
+            return True
+        except Exception:
+            return False
+
+    def realpath(self, path):
+        """
+        :param path: The path that should be resolved
+        """
+        try:
+            return self._client.realpath(path)
+        except Exception:
+            return False
+
+    def rename(self, old_path, new_path):
+        """
+        :param old_path: The path that should be renamed
+        :param new_path: The new path
+        """
+        try:
+            self._client.rename(old_path, new_path)
             return True
         except Exception:
             return False
