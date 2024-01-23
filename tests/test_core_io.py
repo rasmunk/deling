@@ -5,6 +5,8 @@ from random import random
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
+from deling.utils.io import hashsum
+from utils import gen_random_file
 
 
 class TestDataStoreCases:
@@ -246,6 +248,28 @@ class TestDataStoreCases:
         self.assertEqual(float(self.share.read(write_float_file)), content)
         self.assertTrue(self.share.remove(write_float_file))
         self.assertNotIn(write_float_file, self.share.listdir())
+
+    def test_upload_download_file(self):
+        filename = "test_file_{}".format(self.seed)
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        upload_file = os.path.join(tmp_test_dir, filename)
+        # 100 MB
+        size = 1024 * 1024 * 100
+        self.assertTrue(gen_random_file(upload_file, size=size))
+        self.assertTrue(os.path.exists(upload_file))
+        upload_hash = hashsum(upload_file)
+
+        self.assertTrue(self.share.upload(upload_file, filename))
+        self.assertIn(filename, self.share.listdir())
+
+        download_name = "downloaded_{}".format(filename)
+        download_path = os.path.join(tmp_test_dir, download_name)
+        self.assertTrue(self.share.download(filename, download_path))
+        self.assertTrue(os.path.exists(download_path))
+        self.assertEqual(upload_hash, hashsum(download_path))
+
+        self.assertTrue(self.share.remove(filename))
+        self.assertNotIn(filename, self.share.listdir())
 
     # def test_list_attr_file(self):
     #     list_attr_file = "list_attr_file_{}".format(self.seed)

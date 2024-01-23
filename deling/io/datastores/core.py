@@ -503,3 +503,32 @@ class SFTPStore(DataStore):
             return True
         except Exception:
             return False
+
+    def upload(self, local_path, remote_path, file_format="binary"):
+        """
+        :param local_path: The path to the local file
+        :param remote_path: The path to the remote file
+        """
+        r_mode = "rb" if file_format == "binary" else "r"
+        w_mode = "wb" if file_format == "binary" else "w"
+
+        # TODO, add exception handling
+        with open(local_path, r_mode) as fh:
+            with self.open(remote_path, w_mode) as remote_fh:
+                remote_fh.write(fh.read())
+        return True
+
+    def download(self, remote_path, local_path, file_format="binary"):
+        """
+        :param remote_path: The path to the remote file
+        :param local_path: The path to the local file
+        """
+
+        r_mode = "rb" if file_format == "binary" else "r"
+        w_mode = "wb" if file_format == "binary" else "w"
+
+        # TODO, add exception handling
+        with self.open(remote_path, r_mode) as fh:
+            with open(local_path, w_mode) as local_fh:
+                local_fh.write(fh.read())
+        return True

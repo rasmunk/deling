@@ -104,8 +104,6 @@ ENV/
 
 .idea/
 
-
-
 # secret test info
 sharelinks.txt
 
@@ -116,3 +114,8 @@ benchmarks/
 
 # IDE
 .vscode/
+
+# Test output
+res/downloaded*
+tests/downloaded*
+tests/tmp

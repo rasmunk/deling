@@ -8,6 +8,7 @@ ARGS=
 all: venv install-dep init
 
 init:
+	mkdir -p tests/tmp
 ifeq ($(shell test -e defaults.env && echo yes), yes)
 ifneq ($(shell test -e .env && echo yes), yes)
 		ln -s defaults.env .env
@@ -18,6 +19,7 @@ clean:
 	rm -fr .env
 	rm -fr .pytest_cache
 	rm -fr tests/__pycache__
+	rm -fr tests/tmp
 
 dist:
 	$(VENV)/python setup.py sdist bdist_wheel
