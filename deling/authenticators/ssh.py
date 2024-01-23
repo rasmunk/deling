@@ -1,6 +1,24 @@
 import os
 import paramiko
+import socket
 from io import StringIO
+from ssh2.session import Session
+from ssh2.session import (
+    LIBSSH2_HOSTKEY_TYPE_RSA,
+    LIBSSH2_HOSTKEY_TYPE_ECDSA_256,
+    LIBSSH2_HOSTKEY_TYPE_ECDSA_384,
+    LIBSSH2_HOSTKEY_TYPE_ECDSA_521,
+    LIBSSH2_HOSTKEY_TYPE_ED25519,
+)
+from ssh2.knownhost import (
+    LIBSSH2_KNOWNHOST_KEY_SSHRSA,
+    LIBSSH2_KNOWNHOST_KEY_ECDSA_256,
+    LIBSSH2_KNOWNHOST_KEY_ECDSA_384,
+    LIBSSH2_KNOWNHOST_KEY_ECDSA_521,
+    LIBSSH2_KNOWNHOST_KEY_ED25519,
+    LIBSSH2_KNOWNHOST_TYPE_PLAIN,
+    LIBSSH2_KNOWNHOST_KEYENC_RAW,
+)
 from deling.utils.io import (
     acquire_lock,
     release_lock,
@@ -13,18 +31,19 @@ from deling.utils.io import (
 
 default_ssh_path = os.path.join("~", ".ssh")
 
-default_host_key_order = [
-    "ssh-ed25519-cert-v01@openssh.com",
-    "ssh-rsa-cert-v01@openssh.com",
-    "ssh-ed25519",
-    "ssh-rsa",
-    "ecdsa-sha2-nistp521-cert-v01@openssh.com",
-    "ecdsa-sha2-nistp384-cert-v01@openssh.com",
-    "ecdsa-sha2-nistp256-cert-v01@openssh.com",
-    "ecdsa-sha2-nistp521",
-    "ecdsa-sha2-nistp384",
-    "ecdsa-sha2-nistp256",
-]
+
+class SSHKnownHost:
+    host = None
+    key_type = None
+    key = None
+
+    def __init__(self, host, key_type, key):
+        self.host = host
+        self.key_type = key_type
+        self.key = key
+
+    def __str__(self):
+        return f"{self.host} {self.key_type} {self.key}"
 
 
 class SSHAuthenticator:
@@ -40,24 +59,54 @@ class SSHAuthenticator:
     def is_prepared(self):
         return self._is_prepared
 
-    def get_host_key(
-        self,
-        endpoint,
-        port=22,
-        default_host_key_algos=default_host_key_order,
-    ):
-        transport = paramiko.transport.Transport("{}:{}".format(endpoint, port))
-        transport.start_client()
-        # Ensure that we use the same HostKeyAlgorithm order across
-        # SSH implementations
-        transport.get_security_options().key_types = tuple(default_host_key_algos)
-        host_key = transport.get_remote_server_key()
-        return host_key
+    def get_known_host(self, host, port=22):
+        # Inspired by https://github.dev/ParallelSSH/ssh2-python/blob/692bbbf0d8f4be6256a8c3fb0c7d20a99c6fd095/examples/example_host_key_verification.py#L17
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port))
+        try:
+            session = Session()
+            session.handshake(sock)
+            host_key, key_type = session.hostkey()
+
+            server_type_type = None
+            if key_type == LIBSSH2_HOSTKEY_TYPE_RSA:
+                server_type_type = LIBSSH2_KNOWNHOST_KEY_SSHRSA
+            if key_type == LIBSSH2_HOSTKEY_TYPE_ECDSA_256:
+                server_type_type = LIBSSH2_KNOWNHOST_KEY_ECDSA_256
+            if key_type == LIBSSH2_HOSTKEY_TYPE_ECDSA_384:
+                server_type_type = LIBSSH2_KNOWNHOST_KEY_ECDSA_384
+            if key_type == LIBSSH2_HOSTKEY_TYPE_ECDSA_521:
+                server_type_type = LIBSSH2_KNOWNHOST_KEY_ECDSA_521
+            if key_type == LIBSSH2_HOSTKEY_TYPE_ED25519:
+                server_type_type = LIBSSH2_KNOWNHOST_KEY_ED25519
+
+            type_mask = (
+                LIBSSH2_KNOWNHOST_TYPE_PLAIN
+                | LIBSSH2_KNOWNHOST_KEYENC_RAW
+                | server_type_type
+            )
+
+            kh = session.knownhost_init()
+            entry = kh.addc(bytes(host, encoding="utf-8"), host_key, type_mask)
+            # https://github.com/ParallelSSH/ssh2-python/blob/692bbbf0d8f4be6256a8c3fb0c7d20a99c6fd095/libssh2/libssh2/src/knownhost.c#L997-L998
+            # The only place where I could find where the bitwise & is used to resolve/write-out the host key type
+            # Comes in the format b'ip algorithm key\n'
+            known_host_write_line = kh.writeline(entry).decode("utf-8")
+            return SSHKnownHost(*known_host_write_line.split(" "))
+        except Exception as err:
+            print("Failed to get host key: {}".format(err))
+        finally:
+            sock.close()
+        return None
 
     def prepare(self, endpoint, port=22):
         # Get the host key of the target endpoint
-        host_key = self.get_host_key(endpoint, port=port)
-        if self.add_to_known_hosts(endpoint, host_key):
+        ssh_known_host = self.get_known_host(endpoint, port=port)
+
+        if str(ssh_known_host) not in self.get_known_hosts():
+            if self.add_to_known_hosts(ssh_known_host):
+                self._is_prepared = True
+        else:
             self._is_prepared = True
         return self.is_prepared
 
@@ -106,14 +155,10 @@ class SSHAuthenticator:
             release_lock(authorized_lock)
         return True
 
-    def add_to_known_hosts(self, endpoint, host_key):
+    def add_to_known_hosts(self, ssh_known_host):
         path = os.path.join(os.path.expanduser("~"), ".ssh", "known_hosts")
         lock_path = f"{path}_lock"
-        known_host_str = "{endpoint} {key_type} {host_key}\n".format(
-            endpoint=endpoint,
-            key_type=host_key.get_name(),
-            host_key=host_key.get_base64(),
-        )
+        known_host_str = f"{ssh_known_host}"
         try:
             known_hosts_lock = acquire_lock(lock_path)
             if write(path, known_host_str, mode="+a"):
@@ -123,6 +168,11 @@ class SSHAuthenticator:
         finally:
             release_lock(known_hosts_lock)
         return False
+
+    def get_known_hosts(self, path=None):
+        if not path:
+            path = os.path.join(os.path.expanduser("~"), ".ssh", "known_hosts")
+        return load(path, readlines=True)
 
     def remove_from_known_hosts(self, endpoint):
         path = os.path.join(os.path.expanduser("~"), ".ssh", "known_hosts")
