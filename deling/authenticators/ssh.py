@@ -102,7 +102,6 @@ class SSHAuthenticator:
     def prepare(self, endpoint, port=22):
         # Get the host key of the target endpoint
         ssh_known_host = self.get_known_host(endpoint, port=port)
-
         if str(ssh_known_host) not in self.get_known_hosts():
             if self.add_to_known_hosts(ssh_known_host):
                 self._is_prepared = True
@@ -410,6 +409,16 @@ def gen_rsa_ssh_key_pair(size=4096):
     private_key = string_io_obj.getvalue()
     public_key = ("ssh-rsa %s" % (rsa_key.get_base64())).strip()
     return private_key, public_key
+
+
+# def gen_ed25519_ssh_key_pair(size=4096):
+#     key = paramiko.Ed25519Key.generate(bits=size)
+#     string_io_obj = StringIO()
+#     key.write_private_key(string_io_obj)
+
+#     private_key = string_io_obj.getvalue()
+#     public_key = ("ssh-ed25519 %s" % (rsa_key.get_base64())).strip()
+#     return private_key, public_key
 
 
 def load_rsa_key_pair(ssh_dir_path=default_ssh_path, key_name="id_rsa"):

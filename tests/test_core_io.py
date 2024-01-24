@@ -2,10 +2,10 @@ import unittest
 import os
 import sys
 from random import random
-from deling.authenticators.ssh import SSHAuthenticator
+from deling.authenticators.ssh import SSHAuthenticator, gen_rsa_ssh_key_pair
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
-from deling.utils.io import hashsum
+from deling.utils.io import hashsum, write, makedirs, exists
 from utils import gen_random_file
 
 
@@ -395,7 +395,7 @@ class SSHFSStoreTest(TestDataStoreCases, unittest.TestCase):
         self.share = None
 
 
-class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
+class SFTPStoreTestPasswordAuthentication(TestDataStoreCases, unittest.TestCase):
     def setUp(self):
         self.share = SFTPStore(
             host="127.0.0.1",
@@ -403,6 +403,29 @@ class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
             authenticator=SSHAuthenticator(username="mountuser", password="Passw0rd!"),
         )
         self.seed = str(random())[2:10]
+
+    def tearDown(self):
+        self.share = None
+
+
+class SFTPStoreTestKeyAuthentication(TestDataStoreCases, unittest.TestCase):
+    def setUp(self):
+        self.seed = str(random())[2:10]
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
+        private_key, public_key = gen_rsa_ssh_key_pair()
+
+        self.share = SFTPStore(
+            host="127.0.0.1",
+            port="2222",
+            authenticator=SSHAuthenticator(
+                username="mountuser",
+                password="",
+                private_key=private_key,
+                public_key=public_key,
+            ),
+        )
 
     def tearDown(self):
         self.share = None

@@ -245,16 +245,29 @@ class SFTPStore(DataStore):
         s.handshake(sock)
         # Use private key authentication if a private key is provided
         if authenticator.credentials.private_key:
+            if not authenticator.credentials.password:
+                passphrase = ""
+            else:
+                passphrase = authenticator.credentials.password
+
             s.userauth_publickey_frommemory(
                 authenticator.credentials.username,
-                authenticator.credentials.private_key,
-                authenticator.credentials.password,
+                bytes(authenticator.credentials.private_key, encoding="utf-8"),
+                passphrase=passphrase,
+                publickeyfiledata=bytes(
+                    authenticator.credentials.public_key, encoding="utf-8"
+                ),
             )
         elif authenticator.credentials.private_key_file:
+            if not authenticator.credentials.password:
+                passphrase = ""
+            else:
+                passphrase = authenticator.credentials.password
             s.userauth_publickey_fromfile(
                 authenticator.credentials.username,
                 authenticator.credentials.private_key_file,
-                authenticator.credentials.password,
+                passphrase=passphrase,
+                publickey=authenticator.credentials.public_key_file,
             )
         elif authenticator.credentials.password:
             s.userauth_password(
