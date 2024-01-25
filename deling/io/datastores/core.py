@@ -243,36 +243,38 @@ class SFTPStore(DataStore):
         sock.connect((host, port))
         s = Session()
         s.handshake(sock)
-        # Use private key authentication if a private key is provided
-        if authenticator.credentials.private_key:
-            if not authenticator.credentials.password:
-                passphrase = ""
+
+        # Ensure that libssh2 receives the correct types
+        if not authenticator.credentials.password:
+            passphrase = ""
+        else:
+            if not isinstance(authenticator.credentials.password, str):
+                passphrase = str(authenticator.credentials.password)
             else:
                 passphrase = authenticator.credentials.password
-
+        # Use private key authentication if a private key is provided
+        if authenticator.credentials.private_key:
+            if authenticator.credentials.publickey:
+                publickeyfiledata = bytes(
+                    authenticator.credentials.publickey, encoding="utf-8"
+                )
+            else:
+                publickeyfiledata = None
             s.userauth_publickey_frommemory(
                 authenticator.credentials.username,
                 bytes(authenticator.credentials.private_key, encoding="utf-8"),
                 passphrase=passphrase,
-                publickeyfiledata=bytes(
-                    authenticator.credentials.public_key, encoding="utf-8"
-                ),
+                publickeyfiledata=publickeyfiledata,
             )
         elif authenticator.credentials.private_key_file:
-            if not authenticator.credentials.password:
-                passphrase = ""
-            else:
-                passphrase = authenticator.credentials.password
             s.userauth_publickey_fromfile(
                 authenticator.credentials.username,
                 authenticator.credentials.private_key_file,
                 passphrase=passphrase,
                 publickey=authenticator.credentials.public_key_file,
             )
-        elif authenticator.credentials.password:
-            s.userauth_password(
-                authenticator.credentials.username, authenticator.credentials.password
-            )
+        elif authenticator.credentials.password and passphrase:
+            s.userauth_password(authenticator.credentials.username, passphrase)
         else:
             raise ValueError("No authentication method provided")
 
