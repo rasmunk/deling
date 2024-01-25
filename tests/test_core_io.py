@@ -424,7 +424,6 @@ class SFTPStoreTestKeyAuthentication(TestDataStoreCases, unittest.TestCase):
             authenticator=SSHAuthenticator(
                 username="mountuser",
                 private_key=private_key,
-                public_key=public_key,
             ),
         )
 

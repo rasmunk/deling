@@ -254,9 +254,9 @@ class SFTPStore(DataStore):
                 passphrase = authenticator.credentials.password
         # Use private key authentication if a private key is provided
         if authenticator.credentials.private_key:
-            if authenticator.credentials.publickey:
+            if authenticator.credentials.public_key:
                 publickeyfiledata = bytes(
-                    authenticator.credentials.publickey, encoding="utf-8"
+                    authenticator.credentials.public_key, encoding="utf-8"
                 )
             else:
                 publickeyfiledata = None
