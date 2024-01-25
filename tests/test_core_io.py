@@ -252,6 +252,8 @@ class TestDataStoreCases:
     def test_upload_download_file(self):
         filename = "test_file_{}".format(self.seed)
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
         upload_file = os.path.join(tmp_test_dir, filename)
         # 100 MB
         size = 1024 * 1024 * 100
@@ -421,7 +423,6 @@ class SFTPStoreTestKeyAuthentication(TestDataStoreCases, unittest.TestCase):
             port="2222",
             authenticator=SSHAuthenticator(
                 username="mountuser",
-                password="",
                 private_key=private_key,
                 public_key=public_key,
             ),
