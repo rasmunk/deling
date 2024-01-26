@@ -1,8 +1,5 @@
 import os
-import paramiko
 import socket
-from base64 import b64encode
-from io import StringIO
 from ssh2.session import (
     Session,
     LIBSSH2_METHOD_HOSTKEY,

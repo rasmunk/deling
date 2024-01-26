@@ -80,8 +80,6 @@ class SFTPStoreTestED25519KeyAuthentication(AuthenticationTestCases, unittest.Te
         # For now, use ED25519 keys
 
     def tearDown(self):
-        # TODO, remove everything inside the self.test_ssh_dir before it
-        # is removed
         # Remove every file from test_ssh_dir
         if exists(self.test_ssh_dir):
             self.assertTrue(removedirs(self.test_ssh_dir, recursive=True))
