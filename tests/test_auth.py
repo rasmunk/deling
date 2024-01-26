@@ -72,6 +72,7 @@ class SFTPStoreTestED25519KeyAuthentication(AuthenticationTestCases, unittest.Te
 
         self.username = "mountuser"
         self.password = "Passw0rd!"
+        # TODO, launch the test docker container
         # Until ssh2-python supports libssh2 1.11.0,
         # RSA keys are not hashed with SHA256 but with the
         # deprecated and unsecure SHA1
