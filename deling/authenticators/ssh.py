@@ -1,8 +1,18 @@
 import os
 import paramiko
 import socket
+from base64 import b64encode
 from io import StringIO
-from ssh2.session import Session
+from ssh2.session import (
+    Session,
+    LIBSSH2_METHOD_HOSTKEY,
+    LIBSSH2_METHOD_KEX,
+    LIBSSH2_METHOD_CRYPT_CS,
+    LIBSSH2_METHOD_CRYPT_SC,
+    LIBSSH2_METHOD_MAC_CS,
+    LIBSSH2_METHOD_MAC_SC,
+    LIBSSH2_HOSTKEY_HASH_SHA256,
+)
 from ssh2.session import (
     LIBSSH2_HOSTKEY_TYPE_RSA,
     LIBSSH2_HOSTKEY_TYPE_ECDSA_256,
@@ -16,8 +26,10 @@ from ssh2.knownhost import (
     LIBSSH2_KNOWNHOST_KEY_ECDSA_384,
     LIBSSH2_KNOWNHOST_KEY_ECDSA_521,
     LIBSSH2_KNOWNHOST_KEY_ED25519,
-    LIBSSH2_KNOWNHOST_TYPE_PLAIN,
+    LIBSSH2_KNOWNHOST_TYPE_SHA1,
+    LIBSSH2_KNOWNHOST_KEYENC_BASE64,
     LIBSSH2_KNOWNHOST_KEYENC_RAW,
+    LIBSSH2_KNOWNHOST_TYPE_PLAIN,
 )
 from deling.utils.io import (
     acquire_lock,
@@ -65,12 +77,23 @@ class SSHAuthenticator:
         sock.connect((host, port))
         try:
             session = Session()
+            session.method_pref(LIBSSH2_METHOD_HOSTKEY, "ssh-ed25519")
+            session.method_pref(LIBSSH2_METHOD_KEX, "curve25519-sha256@libssh.org")
+            session.method_pref(LIBSSH2_METHOD_CRYPT_CS, "aes256-ctr")
+            session.method_pref(LIBSSH2_METHOD_CRYPT_SC, "aes256-ctr")
             session.handshake(sock)
+            # Set the default prefered HOSTKEY
+            # methods1 = session.methods(LIBSSH2_METHOD_HOSTKEY)
+            # methods2 = session.methods(LIBSSH2_METHOD_KEX)
+            # methods3 = session.methods(LIBSSH2_METHOD_CRYPT_CS)
+            # methods4 = session.methods(LIBSSH2_METHOD_CRYPT_SC)
+            # methods5 = session.methods(LIBSSH2_METHOD_MAC_CS)
+            # methods6 = session.methods(LIBSSH2_METHOD_MAC_SC)
+
             host_key, key_type = session.hostkey()
+            hashed_hostkey = session.hostkey_hash(LIBSSH2_HOSTKEY_HASH_SHA256)
 
             server_type_type = None
-            if key_type == LIBSSH2_HOSTKEY_TYPE_RSA:
-                server_type_type = LIBSSH2_KNOWNHOST_KEY_SSHRSA
             if key_type == LIBSSH2_HOSTKEY_TYPE_ECDSA_256:
                 server_type_type = LIBSSH2_KNOWNHOST_KEY_ECDSA_256
             if key_type == LIBSSH2_HOSTKEY_TYPE_ECDSA_384:
@@ -81,13 +104,21 @@ class SSHAuthenticator:
                 server_type_type = LIBSSH2_KNOWNHOST_KEY_ED25519
 
             type_mask = (
-                LIBSSH2_KNOWNHOST_TYPE_PLAIN
-                | LIBSSH2_KNOWNHOST_KEYENC_RAW
+                LIBSSH2_KNOWNHOST_KEYENC_RAW
+                | LIBSSH2_KNOWNHOST_TYPE_PLAIN
                 | server_type_type
             )
-
+            # encoded_hostkey = b64encode(host_key)
             kh = session.knownhost_init()
-            entry = kh.addc(bytes(host, encoding="utf-8"), host_key, type_mask)
+            # https://www.ibm.com/docs/en/zos/2.4.0?topic=daemon-ssh-known-hosts-file-format
+            if str(port) != "22":
+                known_hostname = "[{}]:{}".format(host, port)
+            else:
+                known_hostname = host
+            entry = kh.addc(
+                bytes(known_hostname, encoding="utf-8"), host_key, type_mask
+            )
+
             # https://github.com/ParallelSSH/ssh2-python/blob/692bbbf0d8f4be6256a8c3fb0c7d20a99c6fd095/libssh2/libssh2/src/knownhost.c#L997-L998
             # The only place where I could find where the bitwise & is used to resolve/write-out the host key type
             # Comes in the format b'ip algorithm key\n'

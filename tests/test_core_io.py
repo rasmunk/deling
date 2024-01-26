@@ -5,7 +5,7 @@ from random import random
 from deling.authenticators.ssh import SSHAuthenticator, gen_rsa_ssh_key_pair
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
-from deling.utils.io import hashsum, write, makedirs, exists
+from deling.utils.io import hashsum, write, makedirs, exists, load
 from utils import gen_random_file
 
 
@@ -416,14 +416,19 @@ class SFTPStoreTestKeyAuthentication(TestDataStoreCases, unittest.TestCase):
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
         if not exists(tmp_test_dir):
             self.assertTrue(makedirs(tmp_test_dir))
-        private_key, public_key = gen_rsa_ssh_key_pair()
 
+        # Until ssh2-python supports libssh2 1.11.0,
+        # RSA keys are not hashed with SHA256 but with the
+        # deprecated and unsecure SHA1
+        # https://github.com/ParallelSSH/ssh2-python/issues/183
+        # https://github.com/libssh2/libssh2/releases/tag/libssh2-1.11.0
+        # For now, use ED25519 keys
+        private_key_file = ""
         self.share = SFTPStore(
             host="127.0.0.1",
             port="2222",
             authenticator=SSHAuthenticator(
-                username="mountuser",
-                private_key=private_key,
+                username="mountuser", private_key_file=private_key_file
             ),
         )
 

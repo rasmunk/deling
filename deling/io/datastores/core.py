@@ -3,7 +3,16 @@ import fs
 import socket
 from abc import abstractmethod
 from fs.errors import ResourceNotFound
-from ssh2.session import Session
+from ssh2.session import (
+    Session,
+    MethodType,
+    LIBSSH2_METHOD_HOSTKEY,
+    LIBSSH2_METHOD_KEX,
+    LIBSSH2_METHOD_CRYPT_CS,
+    LIBSSH2_METHOD_CRYPT_SC,
+    LIBSSH2_METHOD_MAC_CS,
+    LIBSSH2_METHOD_MAC_SC,
+)
 from ssh2.exceptions import SFTPProtocolError
 from ssh2.sftp import (
     LIBSSH2_FXF_READ,
@@ -242,7 +251,17 @@ class SFTPStore(DataStore):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
         s = Session()
+        # TODO, verify that the order on methods is updated post these calls
+        s.method_pref(LIBSSH2_METHOD_HOSTKEY, "ssh-ed25519")
+        s.method_pref(LIBSSH2_METHOD_KEX, "curve25519-sha256@libssh.org")
+        s.method_pref(LIBSSH2_METHOD_CRYPT_CS, "aes256-ctr")
+        s.method_pref(LIBSSH2_METHOD_CRYPT_SC, "aes256-ctr")
         s.handshake(sock)
+
+        userauth_list = s.userauth_list(authenticator.credentials.username)
+        supported_algo = s.supported_algs(LIBSSH2_METHOD_HOSTKEY)
+        # TODO, check whether the list are updated
+        methods = s.methods(LIBSSH2_METHOD_HOSTKEY)
 
         # Ensure that libssh2 receives the correct types
         if not authenticator.credentials.password:
@@ -255,9 +274,14 @@ class SFTPStore(DataStore):
         # Use private key authentication if a private key is provided
         if authenticator.credentials.private_key:
             if authenticator.credentials.public_key:
-                publickeyfiledata = bytes(
-                    authenticator.credentials.public_key, encoding="utf-8"
-                )
+                if isinstance(authenticator.credentials.public_key, str):
+                    publickeyfiledata = bytes(
+                        authenticator.credentials.public_key, encoding="utf-8"
+                    )
+                elif isinstance(authenticator.credentials.public_key, bytes):
+                    publickeyfiledata = authenticator.credentials.public_key
+                else:
+                    raise TypeError("public_key must be a string or bytes")
             else:
                 publickeyfiledata = None
             s.userauth_publickey_frommemory(
