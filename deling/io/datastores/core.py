@@ -39,6 +39,10 @@ class DataStore:
         self._client = client
 
     @abstractmethod
+    def disconnect(self):
+        pass
+
+    @abstractmethod
     def open(self, path, flag="r"):
         pass
 
@@ -74,10 +78,18 @@ class SSHFSStore(DataStore):
         client = fs.open_fs(
             "ssh://" + username + ":" + password + "@" + host + ":" + port + "/" + path
         )
+        self._is_connected = True
         super(SSHFSStore, self).__init__(client)
+
+    def __del__(self):
+        self.disconnect()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    def disconnect(self):
+        self._client.session.disconnect()
+        self._is_connected = False
 
     def geturl(self, path):
         return self._client.geturl(path)
@@ -304,13 +316,24 @@ class SFTPStore(DataStore):
 
         s.open_session()
         client = s.sftp_init()
+        self._is_connected = True
         super(SFTPStore, self).__init__(client=client)
+
+    def __del__(self):
+        self.disconnect()
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    def is_connected(self):
+        return self._is_connected
+
+    def disconnect(self):
+        self._client.session.disconnect()
+        self._is_connected = False
 
     def open(self, path, flag="r"):
         """
@@ -320,7 +343,6 @@ class SFTPStore(DataStore):
         :return: SFTPHandle, https://github.com/ParallelSSH/ssh2-python
         /blob/master/ssh2/sftp_handle.pyx
         """
-
         if flag == "r" or flag == "rb":
             r_flags = LIBSSH2_FXF_READ
             mode = LIBSSH2_SFTP_S_IWUSR

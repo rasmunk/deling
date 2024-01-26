@@ -39,9 +39,11 @@ from deling.utils.io import (
     load,
     chmod,
     remove,
+    exists,
 )
+from deling.utils.run import run
 
-default_ssh_path = os.path.join("~", ".ssh")
+default_ssh_path = os.path.join(os.path.expanduser("~"), ".ssh")
 
 
 class SSHKnownHost:
@@ -391,75 +393,61 @@ def ssh_credentials_exists(
     return True
 
 
-def load_ssh_credentials(
+def gen_ssh_key_pair(
+    key_type="ed25519",
+    size=4096,
     ssh_dir_path=default_ssh_path,
-    key_name="id_rsa",
-    **kwargs,
+    key_name="id_ed25519",
+    format_output_str=False,
+    password='""',
 ):
-    if not ssh_credentials_exists(
-        ssh_dir_path=ssh_dir_path,
-        key_name=key_name,
-        **kwargs,
-    ):
-        return None
-
-    private_key, public_key = load_rsa_key_pair(
-        ssh_dir_path=ssh_dir_path, key_name=key_name
+    generate_key_path = os.path.join(ssh_dir_path, key_name)
+    result = run(
+        [
+            "ssh-keygen",
+            "-t",
+            key_type,
+            "-b",
+            str(size),
+            "-f",
+            generate_key_path,
+            "-N",
+            password,
+        ],
+        format_output_str=format_output_str,
     )
-    private_key_file = os.path.join(ssh_dir_path, key_name)
-    public_key_file = os.path.join(ssh_dir_path, "{}.pub".format(key_name))
-
-    credential_kwargs = dict(
-        private_key=private_key,
-        private_key_file=private_key_file,
-        public_key=public_key,
-        public_key_file=public_key_file,
-    )
-    return SSHCredentials(**credential_kwargs)
-
-
-def gen_ssh_credentials(ssh_dir_path=default_ssh_path, key_name="id_rsa", size=4096):
-    private_key, public_key = gen_rsa_ssh_key_pair(size=size)
-    private_key_file = os.path.join(ssh_dir_path, key_name)
-    public_key_file = os.path.join(ssh_dir_path, "{}.pub".format(key_name))
-
-    credential_kwargs = dict(
-        private_key=private_key,
-        private_key_file=private_key_file,
-        public_key=public_key,
-        public_key_file=public_key_file,
-    )
-    return SSHCredentials(**credential_kwargs)
-
-
-def gen_rsa_ssh_key_pair(size=4096):
-    rsa_key = paramiko.RSAKey.generate(size)
-    string_io_obj = StringIO()
-    rsa_key.write_private_key(string_io_obj)
-
-    private_key = string_io_obj.getvalue()
-    public_key = ("ssh-rsa %s" % (rsa_key.get_base64())).strip()
-    return private_key, public_key
-
-
-# def gen_ed25519_ssh_key_pair(size=4096):
-#     key = paramiko.Ed25519Key.generate(bits=size)
-#     string_io_obj = StringIO()
-#     key.write_private_key(string_io_obj)
-
-#     private_key = string_io_obj.getvalue()
-#     public_key = ("ssh-ed25519 %s" % (rsa_key.get_base64())).strip()
-#     return private_key, public_key
+    if result["returncode"] == 0:
+        return True
+    return False
 
 
 def load_rsa_key_pair(ssh_dir_path=default_ssh_path, key_name="id_rsa"):
     private_key_file = os.path.join(ssh_dir_path, key_name)
     if not os.path.exists(private_key_file):
-        return False, False
+        return None
     private_key = load(private_key_file)
 
     public_key_file = os.path.join(ssh_dir_path, "{}.pub".format(key_name))
     if not os.path.exists(public_key_file):
-        return False, False
+        return None
     public_key = load(public_key_file)
-    return private_key, public_key
+    credential_kwargs = dict(
+        private_key=private_key,
+        private_key_file=private_key_file,
+        public_key=public_key,
+        public_key_file=public_key_file,
+    )
+    return SSHCredentials(**credential_kwargs)
+
+
+def remove_ssh_credentials(ssh_dir_path=default_ssh_path, key_name="id_rsa"):
+    private_key_file = os.path.join(ssh_dir_path, key_name)
+    if exists(private_key_file):
+        if not remove(private_key_file):
+            return False
+
+    public_key_file = os.path.join(ssh_dir_path, "{}.pub".format(key_name))
+    if exists(public_key_file):
+        if not remove(public_key_file):
+            return False
+    return True
