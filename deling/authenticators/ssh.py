@@ -1,5 +1,6 @@
 import os
 import socket
+import base64
 from ssh2.session import (
     Session,
     LIBSSH2_METHOD_HOSTKEY,
@@ -23,10 +24,10 @@ from ssh2.knownhost import (
     LIBSSH2_KNOWNHOST_KEY_ECDSA_384,
     LIBSSH2_KNOWNHOST_KEY_ECDSA_521,
     LIBSSH2_KNOWNHOST_KEY_ED25519,
+    LIBSSH2_KNOWNHOST_TYPE_PLAIN,
     LIBSSH2_KNOWNHOST_TYPE_SHA1,
     LIBSSH2_KNOWNHOST_KEYENC_BASE64,
     LIBSSH2_KNOWNHOST_KEYENC_RAW,
-    LIBSSH2_KNOWNHOST_TYPE_PLAIN,
 )
 from deling.utils.io import (
     acquire_lock,
@@ -90,7 +91,6 @@ class SSHAuthenticator:
             # methods6 = session.methods(LIBSSH2_METHOD_MAC_SC)
 
             host_key, key_type = session.hostkey()
-            hashed_hostkey = session.hostkey_hash(LIBSSH2_HOSTKEY_HASH_SHA256)
 
             server_type_type = None
             if key_type == LIBSSH2_HOSTKEY_TYPE_ECDSA_256:
@@ -102,29 +102,45 @@ class SSHAuthenticator:
             if key_type == LIBSSH2_HOSTKEY_TYPE_ED25519:
                 server_type_type = LIBSSH2_KNOWNHOST_KEY_ED25519
 
-            type_mask = (
-                LIBSSH2_KNOWNHOST_KEYENC_RAW
-                | LIBSSH2_KNOWNHOST_TYPE_PLAIN
-                | server_type_type
-            )
+            key_format = LIBSSH2_KNOWNHOST_KEYENC_RAW
+            host_format = LIBSSH2_KNOWNHOST_TYPE_SHA1
+
+            if host_format == LIBSSH2_KNOWNHOST_TYPE_SHA1:
+                # If LIBSSH2_KNOWNHOST_TYPE_SHA1,
+                # then the host must be base64 encoded
+                key_format = LIBSSH2_KNOWNHOST_KEYENC_BASE64
+
+            type_mask = key_format | host_format | server_type_type
             # encoded_hostkey = b64encode(host_key)
             kh = session.knownhost_init()
             # https://www.ibm.com/docs/en/zos/2.4.0?topic=daemon-ssh-known-hosts-file-format
             if str(port) != "22":
-                known_hostname = "[{}]:{}".format(host, port)
+                known_hostname = bytes("[{}]:{}".format(host, port), encoding="utf-8")
             else:
-                known_hostname = host
-            entry = kh.addc(
-                bytes(known_hostname, encoding="utf-8"), host_key, type_mask
-            )
+                known_hostname = bytes(host, encoding="utf-8")
 
+            salt = os.environ.get("DELING_SSH_KNOWN_HOSTS_SALT", None)
+            if host_format == LIBSSH2_KNOWNHOST_TYPE_SHA1:
+                if not salt:
+                    raise ValueError(
+                        "salt must be set when using LIBSSH2_KNOWNHOST_TYPE_SHA1"
+                    )
+
+                known_hostname = base64.b64encode(known_hostname)
+                # Salt must also be base64 encoded
+                salt = base64.b64encode(bytes(salt, encoding="utf-8"))
+
+            if key_format == LIBSSH2_KNOWNHOST_KEYENC_BASE64:
+                if not isinstance(host_key, bytes):
+                    host_key = bytes(host_key, encoding="utf-8")
+                host_key = base64.b64encode(host_key)
+
+            entry = kh.addc(known_hostname, host_key, type_mask, salt=salt)
             # https://github.com/ParallelSSH/ssh2-python/blob/692bbbf0d8f4be6256a8c3fb0c7d20a99c6fd095/libssh2/libssh2/src/knownhost.c#L997-L998
             # The only place where I could find where the bitwise & is used to resolve/write-out the host key type
             # Comes in the format b'ip algorithm key\n'
             known_host_write_line = kh.writeline(entry).decode("utf-8")
             return SSHKnownHost(*known_host_write_line.split(" "))
-        except Exception as err:
-            print("Failed to get host key: {}".format(err))
         finally:
             sock.close()
         return None
@@ -132,6 +148,8 @@ class SSHAuthenticator:
     def prepare(self, endpoint, port=22):
         # Get the host key of the target endpoint
         ssh_known_host = self.get_known_host(endpoint, port=port)
+        if not ssh_known_host:
+            return False
         if str(ssh_known_host) not in self.get_known_hosts():
             if self.add_to_known_hosts(ssh_known_host):
                 self._is_prepared = True

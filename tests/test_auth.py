@@ -11,6 +11,9 @@ from deling.authenticators.ssh import (
     remove_ssh_credentials,
 )
 
+# Set the test salt to use for hashing the known_hosts entry hostname
+os.environ["DELING_SSH_KNOWN_HOSTS_SALT"] = "testsalt"
+
 
 class AuthenticationTestCases:
     def test_username_password_authentication(self):
@@ -61,8 +64,45 @@ class AuthenticationTestCases:
             ssh_credentials_exists(default_ssh_dir=self.test_ssh_dir, key_name=key_name)
         )
 
+    def test_ed25519_key_memory_authentication(self):
+        key_type = "ed25519"
+        key_name = "id_{}_{}".format(key_type, self.seed)
+        self.assertTrue(
+            gen_ssh_key_pair(
+                default_ssh_dir=self.test_ssh_dir, key_name=key_name, key_type=key_type
+            )
+        )
+        self.assertTrue(
+            ssh_credentials_exists(
+                default_ssh_dir=self.test_ssh_dir,
+                key_name=key_name,
+            )
+        )
+        ssh_credentials = load_rsa_key_pair(
+            default_ssh_dir=self.test_ssh_dir, key_name=key_name
+        )
+        self.assertIsNotNone(ssh_credentials)
+        datastore = SFTPStore(
+            host="127.0.0.1",
+            port="2222",
+            authenticator=SSHAuthenticator(
+                username=self.username,
+                private_key=ssh_credentials.private_key,
+                public_key=ssh_credentials.public_key,
+            ),
+        )
+        self.assertTrue(datastore.is_connected())
+        datastore.disconnect()
+        self.assertFalse(datastore.is_connected())
+        self.assertTrue(
+            remove_ssh_credentials(default_ssh_dir=self.test_ssh_dir, key_name=key_name)
+        )
+        self.assertFalse(
+            ssh_credentials_exists(default_ssh_dir=self.test_ssh_dir, key_name=key_name)
+        )
 
-class SFTPStoreTestED25519KeyAuthentication(AuthenticationTestCases, unittest.TestCase):
+
+class SFTPStoreTestAuthentication(AuthenticationTestCases, unittest.TestCase):
     def setUp(self):
         self.seed = str(random())[2:10]
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")

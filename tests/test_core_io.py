@@ -9,6 +9,10 @@ from deling.utils.io import hashsum, makedirs, exists
 from utils import gen_random_file
 
 
+# Set the test salt to use for hashing the known_hosts entry hostname
+os.environ["DELING_SSH_KNOWN_HOSTS_SALT"] = "testsalt"
+
+
 class TestDataStoreCases:
     def test_open_write(self):
         content = "sddsfeqwfiopqiodnqodniasd"
