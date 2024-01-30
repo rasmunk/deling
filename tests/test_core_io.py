@@ -5,7 +5,7 @@ from random import random
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
-from deling.utils.io import hashsum, makedirs, exists
+from deling.utils.io import hashsum, makedirs, exists, write
 from utils import gen_random_file
 
 
@@ -276,6 +276,37 @@ class TestDataStoreCases:
 
         self.assertTrue(self.share.remove(filename))
         self.assertNotIn(filename, self.share.listdir())
+
+    def test_remote_copy(self):
+        filename = "test_file_{}".format(self.seed)
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
+        upload_file = os.path.join(tmp_test_dir, filename)
+
+        size = 1024 * 1024
+        self.assertTrue(gen_random_file(upload_file, size=size))
+        self.assertTrue(os.path.exists(upload_file))
+        upload_hash = hashsum(upload_file)
+
+        self.assertTrue(self.share.upload(upload_file, filename))
+        self.assertIn(filename, self.share.listdir())
+
+        self.assertTrue(self.share.copy(filename, filename + "_copy"))
+
+        download_name = "downloaded_{}".format(filename)
+        download_path = os.path.join(tmp_test_dir, download_name)
+        self.assertTrue(self.share.download(filename + "_copy", download_path))
+        self.assertTrue(os.path.exists(download_path))
+        self.assertEqual(upload_hash, hashsum(download_path))
+
+        # Remove the original
+        self.assertTrue(self.share.remove(filename))
+        self.assertNotIn(filename, self.share.listdir())
+
+        # Remove the copy
+        self.assertTrue(self.share.remove(filename + "_copy"))
+        self.assertNotIn(filename + "_copy", self.share.listdir())
 
     # def test_list_attr_file(self):
     #     list_attr_file = "list_attr_file_{}".format(self.seed)

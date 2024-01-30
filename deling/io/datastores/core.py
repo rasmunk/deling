@@ -597,3 +597,14 @@ class SFTPStore(DataStore):
             with open(local_path, w_mode) as local_fh:
                 local_fh.write(fh.read())
         return True
+
+    def copy(self, remote_src, remote_dest):
+        """
+        :param remote_src: The path to the remote source file
+        :param remote_dest: The path to the remote destination file
+        """
+        # TODO, add exception handling
+        with self.open(remote_src, "rb") as src:
+            with self.open(remote_dest, "wb") as dest:
+                dest.write(src.read())
+        return True
