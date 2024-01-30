@@ -10,7 +10,7 @@ from utils import gen_random_file
 
 
 # Set the test salt to use for hashing the known_hosts entry hostname
-os.environ["DELING_SSH_KNOWN_HOSTS_SALT"] = "testsalt"
+knownhost_salt = "testsalt"
 
 
 class TestDataStoreCases:
@@ -407,6 +407,7 @@ class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
             host="127.0.0.1",
             port="2222",
             authenticator=SSHAuthenticator(username="mountuser", password="Passw0rd!"),
+            authenticator_prepare_kwargs={"knownhost_salt": knownhost_salt},
         )
         self.seed = str(random())[2:10]
 
@@ -420,6 +421,7 @@ class SFTPStoreSeekOffsetTest(TestDataStoreSeekOffsetCases, unittest.TestCase):
             host="127.0.0.1",
             port="2222",
             authenticator=SSHAuthenticator(username="mountuser", password="Passw0rd!"),
+            authenticator_prepare_kwargs={"knownhost_salt": knownhost_salt},
         )
         super().setUp()
 

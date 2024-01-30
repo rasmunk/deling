@@ -71,7 +71,7 @@ class SSHAuthenticator:
     def is_prepared(self):
         return self._is_prepared
 
-    def get_known_host(self, host, port=22):
+    def get_known_host(self, host, port=22, knownhost_salt=None):
         # Inspired by https://github.dev/ParallelSSH/ssh2-python/blob/692bbbf0d8f4be6256a8c3fb0c7d20a99c6fd095/examples/example_host_key_verification.py#L17
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
@@ -102,13 +102,12 @@ class SSHAuthenticator:
             if key_type == LIBSSH2_HOSTKEY_TYPE_ED25519:
                 server_type_type = LIBSSH2_KNOWNHOST_KEY_ED25519
 
-            key_format = LIBSSH2_KNOWNHOST_KEYENC_RAW
-            host_format = LIBSSH2_KNOWNHOST_TYPE_SHA1
-
-            if host_format == LIBSSH2_KNOWNHOST_TYPE_SHA1:
-                # If LIBSSH2_KNOWNHOST_TYPE_SHA1,
-                # then the host must be base64 encoded
+            if knownhost_salt:
+                host_format = LIBSSH2_KNOWNHOST_TYPE_SHA1
                 key_format = LIBSSH2_KNOWNHOST_KEYENC_BASE64
+            else:
+                host_format = LIBSSH2_KNOWNHOST_TYPE_PLAIN
+                key_format = LIBSSH2_KNOWNHOST_KEYENC_RAW
 
             type_mask = key_format | host_format | server_type_type
             # encoded_hostkey = b64encode(host_key)
@@ -119,16 +118,11 @@ class SSHAuthenticator:
             else:
                 known_hostname = bytes(host, encoding="utf-8")
 
-            salt = os.environ.get("DELING_SSH_KNOWN_HOSTS_SALT", None)
+            salt = None
             if host_format == LIBSSH2_KNOWNHOST_TYPE_SHA1:
-                if not salt:
-                    raise ValueError(
-                        "salt must be set when using LIBSSH2_KNOWNHOST_TYPE_SHA1"
-                    )
-
                 known_hostname = base64.b64encode(known_hostname)
                 # Salt must also be base64 encoded
-                salt = base64.b64encode(bytes(salt, encoding="utf-8"))
+                salt = base64.b64encode(bytes(knownhost_salt, encoding="utf-8"))
 
             if key_format == LIBSSH2_KNOWNHOST_KEYENC_BASE64:
                 if not isinstance(host_key, bytes):
@@ -145,9 +139,11 @@ class SSHAuthenticator:
             sock.close()
         return None
 
-    def prepare(self, endpoint, port=22):
+    def prepare(self, endpoint, port=22, knownhost_salt=None):
         # Get the host key of the target endpoint
-        ssh_known_host = self.get_known_host(endpoint, port=port)
+        ssh_known_host = self.get_known_host(
+            endpoint, port=port, knownhost_salt=knownhost_salt
+        )
         if not ssh_known_host:
             return False
         if str(ssh_known_host) not in self.get_known_hosts():

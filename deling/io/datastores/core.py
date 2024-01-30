@@ -254,10 +254,14 @@ class SSHFSStore(DataStore):
 
 
 class SFTPStore(DataStore):
-    def __init__(self, host, port, authenticator):
+    def __init__(self, host, port, authenticator, authenticator_prepare_kwargs=None):
         if isinstance(port, str):
             port = int(port)
-        if not authenticator.is_prepared and not authenticator.prepare(host, port=port):
+        if not authenticator_prepare_kwargs:
+            authenticator_prepare_kwargs = {}
+        if not authenticator.is_prepared and not authenticator.prepare(
+            host, port=port, **authenticator_prepare_kwargs
+        ):
             raise ValueError("Authenticator could not be prepared")
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

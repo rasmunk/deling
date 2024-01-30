@@ -12,7 +12,7 @@ from deling.authenticators.ssh import (
 )
 
 # Set the test salt to use for hashing the known_hosts entry hostname
-os.environ["DELING_SSH_KNOWN_HOSTS_SALT"] = "testsalt"
+knownhost_salt = "testsalt"
 
 
 class AuthenticationTestCases:
@@ -23,6 +23,7 @@ class AuthenticationTestCases:
             authenticator=SSHAuthenticator(
                 username=self.username, password=self.password
             ),
+            authenticator_prepare_kwargs={"knownhost_salt": knownhost_salt},
         )
         self.assertTrue(datastore.is_connected())
         datastore.disconnect()
