@@ -5,7 +5,7 @@ from random import random
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
-from deling.utils.io import hashsum, makedirs, exists, write
+from deling.utils.io import hashsum, makedirs, exists
 from utils import gen_random_file
 
 

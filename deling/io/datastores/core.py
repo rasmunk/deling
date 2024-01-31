@@ -3,16 +3,7 @@ import fs
 import socket
 from abc import abstractmethod
 from fs.errors import ResourceNotFound
-from ssh2.session import (
-    Session,
-    MethodType,
-    LIBSSH2_METHOD_HOSTKEY,
-    LIBSSH2_METHOD_KEX,
-    LIBSSH2_METHOD_CRYPT_CS,
-    LIBSSH2_METHOD_CRYPT_SC,
-    LIBSSH2_METHOD_MAC_CS,
-    LIBSSH2_METHOD_MAC_SC,
-)
+from ssh2.session import Session, LIBSSH2_METHOD_HOSTKEY
 from ssh2.exceptions import SFTPProtocolError
 from ssh2.sftp import (
     LIBSSH2_FXF_READ,
@@ -267,11 +258,6 @@ class SFTPStore(DataStore):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
         s = Session()
-        # TODO, verify that the order on methods is updated post these calls
-        s.method_pref(LIBSSH2_METHOD_HOSTKEY, "ssh-ed25519")
-        s.method_pref(LIBSSH2_METHOD_KEX, "curve25519-sha256@libssh.org")
-        s.method_pref(LIBSSH2_METHOD_CRYPT_CS, "aes256-ctr")
-        s.method_pref(LIBSSH2_METHOD_CRYPT_SC, "aes256-ctr")
         s.handshake(sock)
 
         userauth_list = s.userauth_list(authenticator.credentials.username)

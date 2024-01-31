@@ -34,17 +34,17 @@ class AuthenticationTestCases:
         key_name = "id_{}_{}".format(key_type, self.seed)
         self.assertTrue(
             gen_ssh_key_pair(
-                default_ssh_dir=self.test_ssh_dir, key_name=key_name, key_type=key_type
+                ssh_dir_path=self.test_ssh_dir, key_name=key_name, key_type=key_type
             )
         )
         self.assertTrue(
             ssh_credentials_exists(
-                default_ssh_dir=self.test_ssh_dir,
+                ssh_dir_path=self.test_ssh_dir,
                 key_name=key_name,
             )
         )
         ssh_credentials = load_rsa_key_pair(
-            default_ssh_dir=self.test_ssh_dir, key_name=key_name
+            ssh_dir_path=self.test_ssh_dir, key_name=key_name
         )
         self.assertIsNotNone(ssh_credentials)
         datastore = SFTPStore(
@@ -53,16 +53,17 @@ class AuthenticationTestCases:
             authenticator=SSHAuthenticator(
                 username=self.username,
                 private_key_file=ssh_credentials.private_key_file,
+                public_key_file=ssh_credentials.public_key_file,
             ),
         )
         self.assertTrue(datastore.is_connected())
         datastore.disconnect()
         self.assertFalse(datastore.is_connected())
         self.assertTrue(
-            remove_ssh_credentials(default_ssh_dir=self.test_ssh_dir, key_name=key_name)
+            remove_ssh_credentials(ssh_dir_path=self.test_ssh_dir, key_name=key_name)
         )
         self.assertFalse(
-            ssh_credentials_exists(default_ssh_dir=self.test_ssh_dir, key_name=key_name)
+            ssh_credentials_exists(ssh_dir_path=self.test_ssh_dir, key_name=key_name)
         )
 
     def test_ed25519_key_memory_authentication(self):
@@ -70,17 +71,17 @@ class AuthenticationTestCases:
         key_name = "id_{}_{}".format(key_type, self.seed)
         self.assertTrue(
             gen_ssh_key_pair(
-                default_ssh_dir=self.test_ssh_dir, key_name=key_name, key_type=key_type
+                ssh_dir_path=self.test_ssh_dir, key_name=key_name, key_type=key_type
             )
         )
         self.assertTrue(
             ssh_credentials_exists(
-                default_ssh_dir=self.test_ssh_dir,
+                ssh_dir_path=self.test_ssh_dir,
                 key_name=key_name,
             )
         )
         ssh_credentials = load_rsa_key_pair(
-            default_ssh_dir=self.test_ssh_dir, key_name=key_name
+            ssh_dir_path=self.test_ssh_dir, key_name=key_name
         )
         self.assertIsNotNone(ssh_credentials)
         datastore = SFTPStore(
@@ -96,10 +97,10 @@ class AuthenticationTestCases:
         datastore.disconnect()
         self.assertFalse(datastore.is_connected())
         self.assertTrue(
-            remove_ssh_credentials(default_ssh_dir=self.test_ssh_dir, key_name=key_name)
+            remove_ssh_credentials(ssh_dir_path=self.test_ssh_dir, key_name=key_name)
         )
         self.assertFalse(
-            ssh_credentials_exists(default_ssh_dir=self.test_ssh_dir, key_name=key_name)
+            ssh_credentials_exists(ssh_dir_path=self.test_ssh_dir, key_name=key_name)
         )
 
 

@@ -1,16 +1,7 @@
 import os
 import socket
 import base64
-from ssh2.session import (
-    Session,
-    LIBSSH2_METHOD_HOSTKEY,
-    LIBSSH2_METHOD_KEX,
-    LIBSSH2_METHOD_CRYPT_CS,
-    LIBSSH2_METHOD_CRYPT_SC,
-    LIBSSH2_METHOD_MAC_CS,
-    LIBSSH2_METHOD_MAC_SC,
-    LIBSSH2_HOSTKEY_HASH_SHA256,
-)
+from ssh2.session import Session
 from ssh2.session import (
     LIBSSH2_HOSTKEY_TYPE_RSA,
     LIBSSH2_HOSTKEY_TYPE_ECDSA_256,
@@ -77,22 +68,12 @@ class SSHAuthenticator:
         sock.connect((host, port))
         try:
             session = Session()
-            session.method_pref(LIBSSH2_METHOD_HOSTKEY, "ssh-ed25519")
-            session.method_pref(LIBSSH2_METHOD_KEX, "curve25519-sha256@libssh.org")
-            session.method_pref(LIBSSH2_METHOD_CRYPT_CS, "aes256-ctr")
-            session.method_pref(LIBSSH2_METHOD_CRYPT_SC, "aes256-ctr")
             session.handshake(sock)
-            # Set the default prefered HOSTKEY
-            # methods1 = session.methods(LIBSSH2_METHOD_HOSTKEY)
-            # methods2 = session.methods(LIBSSH2_METHOD_KEX)
-            # methods3 = session.methods(LIBSSH2_METHOD_CRYPT_CS)
-            # methods4 = session.methods(LIBSSH2_METHOD_CRYPT_SC)
-            # methods5 = session.methods(LIBSSH2_METHOD_MAC_CS)
-            # methods6 = session.methods(LIBSSH2_METHOD_MAC_SC)
-
+            # Retrieve the host key
             host_key, key_type = session.hostkey()
-
             server_type_type = None
+            if key_type == LIBSSH2_HOSTKEY_TYPE_RSA:
+                server_type_type = LIBSSH2_KNOWNHOST_KEY_SSHRSA
             if key_type == LIBSSH2_HOSTKEY_TYPE_ECDSA_256:
                 server_type_type = LIBSSH2_KNOWNHOST_KEY_ECDSA_256
             if key_type == LIBSSH2_HOSTKEY_TYPE_ECDSA_384:

@@ -1,3 +1,4 @@
+from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore
 
 
@@ -8,7 +9,9 @@ class ERDA:
 class ERDASFTPShare(SFTPStore):
     def __init__(self, username=None, password=None, port="22"):
         super(ERDASFTPShare, self).__init__(
-            host=ERDA.url, username=username, password=password, port=port
+            ERDA.url,
+            port,
+            SSHAuthenticator(username=username, password=password),
         )
 
 
