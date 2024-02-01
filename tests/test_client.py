@@ -55,3 +55,10 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         self.client._close_session()
         self.client._close_socket()
         self.assertFalse(self.client.is_connected())
+
+    def test_client_authentication(self):
+        self.assertFalse(self.client.is_connected())
+        self.assertTrue(self.client.connect())
+        self.assertTrue(self.client.is_connected())
+        self.client.disconnect()
+        self.assertFalse(self.client.is_connected())

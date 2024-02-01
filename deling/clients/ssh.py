@@ -34,7 +34,7 @@ class SSHClient(object):
         return False
 
     def _connect_socket(self):
-        if not self.socket and self._init_socket():
+        if self._init_socket() and not self.socket:
             return False
         try:
             connect_code = self.socket.connect_ex((self.host, self.port))
@@ -91,7 +91,9 @@ class SSHClient(object):
 
     def connect(self):
         print("Connecting to {} on port {}".format(self.host, self.port))
-        if not self.is_connected() and not self._connect_socket():
+        if not  self._connect_socket():
+            return False
+        if not self.is_connected():
             return False
         if not self._connect_session():
             return False
