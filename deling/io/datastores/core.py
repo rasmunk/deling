@@ -304,7 +304,6 @@ class SFTPStore(DataStore):
         else:
             raise ValueError("No authentication method provided")
 
-        s.open_session()
         client = s.sftp_init()
         self._is_connected = True
         super(SFTPStore, self).__init__(client=client)
