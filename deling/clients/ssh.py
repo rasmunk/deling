@@ -6,7 +6,8 @@ class SSHClient(object):
     def __init__(self, host, authenticator, port=22, proxy=None):
         self.host = host
         self.authenticator = authenticator
-        self.port = port
+        if isinstance(port, str):
+            self.port = int(port)
         self.proxy = proxy
 
         self.socket = None
