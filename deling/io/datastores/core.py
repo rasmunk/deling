@@ -1,9 +1,7 @@
 import os
 import fs
-import socket
 from abc import abstractmethod
 from fs.errors import ResourceNotFound
-from ssh2.session import Session, LIBSSH2_METHOD_HOSTKEY
 from ssh2.exceptions import SFTPProtocolError
 from ssh2.sftp import (
     LIBSSH2_FXF_READ,
