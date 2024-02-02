@@ -91,3 +91,27 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         self.client.close_channel(channel_type=CHANNEL_TYPE_SFTP)
         self.assertIsNone(self.client.sftp_channel)
         self.client.disconnect()
+
+
+class SSHClientProxyTest(CommonClientTestCases, unittest.TestCase):
+    def setUp(self):
+        self.seed = str(random())[2:10]
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        self.test_ssh_dir = os.path.join(tmp_test_dir, "ssh-{}".format(self.seed))
+        if not exists(self.test_ssh_dir):
+            self.assertTrue(makedirs(self.test_ssh_dir))
+
+        host = "127.0.0.1"
+        port = "2222"
+        username = "mountuser"
+        password = "Passw0rd!"
+
+        authenticator = SSHAuthenticator(username=username, password=password)
+        self.proxy = SSHClient(host, authenticator, port=port)
+        self.client = SSHClient(host, authenticator, port=port, proxy=self.proxy)
+
+    def tearDown(self):
+        # Remove every file from test_ssh_dir
+        if exists(self.test_ssh_dir):
+            self.assertTrue(removedirs(self.test_ssh_dir, recursive=True))
+        self.share = None
