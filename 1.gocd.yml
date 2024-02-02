@@ -1,9 +1,7 @@
 environments:
-  bare_metal_pypi_package:
+  pypi_package:
     environment_variables:
       GIT_USER: "{{SECRET:[github][username]}}"
-      ERDA_TEST_SHARE: "{{SECRET:[deling][erda_test_share]}}"
-      LD_LIBRARY_PATH: /usr/local/lib/x86_64-linux-gnu
     pipelines:
       - deling
 pipelines:
@@ -23,8 +21,8 @@ pipelines:
       publish_python_git:
         git: https://github.com/rasmunk/publish-python-scripts.git
         branch: main
-        username: ${GIT_USER}
-        password: "{{SECRET:[github][access_token]}}"
+        username: "{{SECRET:[pypi][deling][username]}}"
+        password: "{{SECRET:[pypi]][deling][password]}}"
         destination: publish-python-scripts
     parameters:
       ARGS: ''
