@@ -65,7 +65,10 @@ class SSHAuthenticator:
     def get_known_host(self, host, port=22, knownhost_salt=None):
         # Inspired by https://github.dev/ParallelSSH/ssh2-python/blob/692bbbf0d8f4be6256a8c3fb0c7d20a99c6fd095/examples/example_host_key_verification.py#L17
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if isinstance(port, str):
+            port = int(port)
         sock.connect((host, port))
+        known_host = None
         try:
             session = Session()
             session.handshake(sock)
@@ -92,33 +95,37 @@ class SSHAuthenticator:
 
             type_mask = key_format | host_format | server_type_type
             # encoded_hostkey = b64encode(host_key)
-            kh = session.knownhost_init()
-            # https://www.ibm.com/docs/en/zos/2.4.0?topic=daemon-ssh-known-hosts-file-format
-            if str(port) != "22":
-                known_hostname = bytes("[{}]:{}".format(host, port), encoding="utf-8")
-            else:
-                known_hostname = bytes(host, encoding="utf-8")
-
-            salt = None
-            if host_format == LIBSSH2_KNOWNHOST_TYPE_SHA1:
-                known_hostname = base64.b64encode(known_hostname)
-                # Salt must also be base64 encoded
-                salt = base64.b64encode(bytes(knownhost_salt, encoding="utf-8"))
-
-            if key_format == LIBSSH2_KNOWNHOST_KEYENC_BASE64:
-                if not isinstance(host_key, bytes):
-                    host_key = bytes(host_key, encoding="utf-8")
-                host_key = base64.b64encode(host_key)
-
-            entry = kh.addc(known_hostname, host_key, type_mask, salt=salt)
-            # https://github.com/ParallelSSH/ssh2-python/blob/692bbbf0d8f4be6256a8c3fb0c7d20a99c6fd095/libssh2/libssh2/src/knownhost.c#L997-L998
-            # The only place where I could find where the bitwise & is used to resolve/write-out the host key type
-            # Comes in the format b'ip algorithm key\n'
-            known_host_write_line = kh.writeline(entry).decode("utf-8")
-            return SSHKnownHost(*known_host_write_line.split(" "))
+            known_host = session.knownhost_init()
+        except Exception as err:
+            print("Failed to get known host: {}".format(err))
         finally:
             sock.close()
-        return None
+        if not known_host:
+            return None
+
+        # https://www.ibm.com/docs/en/zos/2.4.0?topic=daemon-ssh-known-hosts-file-format
+        if str(port) != "22":
+            known_hostname = bytes("[{}]:{}".format(host, port), encoding="utf-8")
+        else:
+            known_hostname = bytes(host, encoding="utf-8")
+
+        salt = None
+        if host_format == LIBSSH2_KNOWNHOST_TYPE_SHA1:
+            known_hostname = base64.b64encode(known_hostname)
+            # Salt must also be base64 encoded
+            salt = base64.b64encode(bytes(knownhost_salt, encoding="utf-8"))
+
+        if key_format == LIBSSH2_KNOWNHOST_KEYENC_BASE64:
+            if not isinstance(host_key, bytes):
+                host_key = bytes(host_key, encoding="utf-8")
+            host_key = base64.b64encode(host_key)
+
+        entry = known_host.addc(known_hostname, host_key, type_mask, salt=salt)
+        # https://github.com/ParallelSSH/ssh2-python/blob/692bbbf0d8f4be6256a8c3fb0c7d20a99c6fd095/libssh2/libssh2/src/knownhost.c#L997-L998
+        # The only place where I could find where the bitwise & is used to resolve/write-out the host key type
+        # Comes in the format b'ip algorithm key\n'
+        known_host_write_line = known_host.writeline(entry).decode("utf-8")
+        return SSHKnownHost(*known_host_write_line.split(" "))
 
     def prepare(self, endpoint, port=22, knownhost_salt=None):
         # Get the host key of the target endpoint

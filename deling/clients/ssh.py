@@ -18,6 +18,7 @@ class SSHClient(object):
         self.socket = None
         self.session = None
         self.channel = None
+        self.sftp_channel = None
 
     def __del__(self):
         self.disconnect()
@@ -87,7 +88,7 @@ class SSHClient(object):
             if channel_type == CHANNEL_TYPE_SESSION:
                 self.channel = self.session.open_session()
             elif channel_type == CHANNEL_TYPE_SFTP:
-                self.channel = self.session.init_sftp()
+                self.sftp_channel = self.session.sftp_init()
             else:
                 return False
         except Exception as e:
@@ -95,11 +96,25 @@ class SSHClient(object):
             return False
         return True
 
-    def close_channel(self):
-        if self.channel:
-            self.channel.close()
-            self.channel.wait_closed()
-            self.channel = None
+    def get_channel(self, channel_type=CHANNEL_TYPE_SESSION):
+        if channel_type not in CHANNEL_TYPES:
+            return False
+        if channel_type == CHANNEL_TYPE_SESSION:
+            return self.channel
+        if channel_type == CHANNEL_TYPE_SFTP:
+            return self.sftp_channel
+        return False
+
+    def close_channel(self, channel_type=CHANNEL_TYPE_SESSION):
+        if channel_type not in CHANNEL_TYPES:
+            return False
+        if channel_type == CHANNEL_TYPE_SESSION:
+            if self.channel:
+                self.channel.close()
+                self.channel.wait_closed()
+                self.channel = None
+        if channel_type == CHANNEL_TYPE_SFTP:
+            self.sftp_channel = None
 
     def _authenticate(self):
         if not self.authenticator:
@@ -120,15 +135,9 @@ class SSHClient(object):
             return False
         return True
 
-    def open_tunnel(self, host, port):
-        print("Opening tunnel to {} on port {}".format(host, port))
-
-    def close_tunnel(self):
-        print("Closing tunnel")
-
     def disconnect(self):
-        self.close_tunnel()
-        self.close_channel()
+        self.close_channel(CHANNEL_TYPE_SESSION)
+        self.close_channel(CHANNEL_TYPE_SFTP)
         self._close_session()
         if self.is_socket_connected():
             self._close_socket()

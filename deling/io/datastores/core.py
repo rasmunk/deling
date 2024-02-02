@@ -249,17 +249,23 @@ class SFTPStore(DataStore):
     def __init__(self, host, port, authenticator, authenticator_prepare_kwargs=None):
         if not authenticator_prepare_kwargs:
             authenticator_prepare_kwargs = {}
+
         if not authenticator.is_prepared and not authenticator.prepare(
             host, port=port, **authenticator_prepare_kwargs
         ):
             raise ValueError("Authenticator could not be prepared")
+
         self.ssh_client = SSHClient(host, authenticator, port=port)
         connected = self.ssh_client.connect()
         if not connected:
             raise ConnectionError("Could not connect to the server")
 
-        sftp_client = self.ssh_client.open_channel(channel_type=CHANNEL_TYPE_SFTP)
-        super(SFTPStore, self).__init__(client=sftp_client)
+        channel_opened = self.ssh_client.open_channel(channel_type=CHANNEL_TYPE_SFTP)
+        if not channel_opened:
+            raise ConnectionError("Could not open an SFTP channel")
+
+        sftp_channel = self.ssh_client.get_channel(CHANNEL_TYPE_SFTP)
+        super(SFTPStore, self).__init__(client=sftp_channel)
 
     def __del__(self):
         self.disconnect()
@@ -274,8 +280,10 @@ class SFTPStore(DataStore):
         return self.ssh_client.is_socket_connected()
 
     def disconnect(self):
-        self._client.session.disconnect()
-        self.ssh_client.disconnect()
+        if self._client:
+            self._client.session.disconnect()
+        if self.ssh_client:
+            self.ssh_client.disconnect()
 
     def open(self, path, flag="r"):
         """
