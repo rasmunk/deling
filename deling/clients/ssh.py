@@ -2,6 +2,11 @@ import socket
 from ssh2.session import Session
 
 
+CHANNEL_TYPE_SESSION = "session"
+CHANNEL_TYPE_SFTP = "sftp"
+CHANNEL_TYPES = [CHANNEL_TYPE_SESSION, CHANNEL_TYPE_SFTP]
+
+
 class SSHClient(object):
     def __init__(self, host, authenticator, port=22, proxy=None):
         self.host = host
@@ -73,11 +78,18 @@ class SSHClient(object):
             self.session.disconnect()
             self.session = None
 
-    def open_channel(self):
+    def open_channel(self, channel_type=CHANNEL_TYPE_SESSION):
+        if channel_type not in CHANNEL_TYPES:
+            return False
         if not self.session:
             return False
         try:
-            self.channel = self.session.open_session()
+            if channel_type == CHANNEL_TYPE_SESSION:
+                self.channel = self.session.open_session()
+            elif channel_type == CHANNEL_TYPE_SFTP:
+                self.channel = self.session.init_sftp()
+            else:
+                return False
         except Exception as e:
             print("Failed to open channel: {}".format(e))
             return False

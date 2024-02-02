@@ -15,6 +15,7 @@ from ssh2.sftp import (
     LIBSSH2_SFTP_S_IROTH,
     LIBSSH2_FXF_APPEND,
 )
+from deling.clients.ssh import SSHClient, CHANNEL_TYPE_SFTP
 from deling.io.datastores.file import SFTPFileHandle
 
 
@@ -246,67 +247,19 @@ class SSHFSStore(DataStore):
 
 class SFTPStore(DataStore):
     def __init__(self, host, port, authenticator, authenticator_prepare_kwargs=None):
-        if isinstance(port, str):
-            port = int(port)
         if not authenticator_prepare_kwargs:
             authenticator_prepare_kwargs = {}
         if not authenticator.is_prepared and not authenticator.prepare(
             host, port=port, **authenticator_prepare_kwargs
         ):
             raise ValueError("Authenticator could not be prepared")
+        self.ssh_client = SSHClient(host, authenticator, port=port)
+        connected = self.ssh_client.connect()
+        if not connected:
+            raise ConnectionError("Could not connect to the server")
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host, port))
-        s = Session()
-        s.handshake(sock)
-
-        userauth_list = s.userauth_list(authenticator.credentials.username)
-        supported_algo = s.supported_algs(LIBSSH2_METHOD_HOSTKEY)
-        # TODO, check whether the list are updated
-        methods = s.methods(LIBSSH2_METHOD_HOSTKEY)
-
-        # Ensure that libssh2 receives the correct types
-        if not authenticator.credentials.password:
-            passphrase = ""
-        else:
-            if not isinstance(authenticator.credentials.password, str):
-                passphrase = str(authenticator.credentials.password)
-            else:
-                passphrase = authenticator.credentials.password
-        # Use private key authentication if a private key is provided
-        if authenticator.credentials.private_key:
-            if authenticator.credentials.public_key:
-                if isinstance(authenticator.credentials.public_key, str):
-                    publickeyfiledata = bytes(
-                        authenticator.credentials.public_key, encoding="utf-8"
-                    )
-                elif isinstance(authenticator.credentials.public_key, bytes):
-                    publickeyfiledata = authenticator.credentials.public_key
-                else:
-                    raise TypeError("public_key must be a string or bytes")
-            else:
-                publickeyfiledata = None
-            s.userauth_publickey_frommemory(
-                authenticator.credentials.username,
-                bytes(authenticator.credentials.private_key, encoding="utf-8"),
-                passphrase=passphrase,
-                publickeyfiledata=publickeyfiledata,
-            )
-        elif authenticator.credentials.private_key_file:
-            s.userauth_publickey_fromfile(
-                authenticator.credentials.username,
-                authenticator.credentials.private_key_file,
-                passphrase=passphrase,
-                publickey=authenticator.credentials.public_key_file,
-            )
-        elif authenticator.credentials.password and passphrase:
-            s.userauth_password(authenticator.credentials.username, passphrase)
-        else:
-            raise ValueError("No authentication method provided")
-
-        client = s.sftp_init()
-        self._is_connected = True
-        super(SFTPStore, self).__init__(client=client)
+        sftp_client = self.ssh_client.open_channel(channel_type=CHANNEL_TYPE_SFTP)
+        super(SFTPStore, self).__init__(client=sftp_client)
 
     def __del__(self):
         self.disconnect()
@@ -318,11 +271,11 @@ class SFTPStore(DataStore):
         self.close()
 
     def is_connected(self):
-        return self._is_connected
+        return self.ssh_client.is_socket_connected()
 
     def disconnect(self):
         self._client.session.disconnect()
-        self._is_connected = False
+        self.ssh_client.disconnect()
 
     def open(self, path, flag="r"):
         """
