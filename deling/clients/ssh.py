@@ -17,7 +17,7 @@ class SSHClient(object):
     def __del__(self):
         self.disconnect()
 
-    def is_connected(self):
+    def is_socket_connected(self):
         if not self.socket:
             return False
         error_code = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
@@ -57,7 +57,7 @@ class SSHClient(object):
         return True
 
     def _connect_session(self):
-        if not self.is_connected():
+        if not self.is_socket_connected():
             return False
         if not self.session and not self._init_session():
             return False
@@ -81,7 +81,7 @@ class SSHClient(object):
         except Exception as e:
             print("Failed to open channel: {}".format(e))
             return False
-        return None
+        return True
 
     def close_channel(self):
         if self.channel:
@@ -89,15 +89,22 @@ class SSHClient(object):
             self.channel.wait_closed()
             self.channel = None
 
+    def _authenticate(self):
+        if not self.authenticator:
+            return False
+        if not self.session:
+            return False
+        return self.authenticator.authenticate(self.session)
+
     def connect(self):
         print("Connecting to {} on port {}".format(self.host, self.port))
-        if not  self._connect_socket():
+        if not self._connect_socket():
             return False
-        if not self.is_connected():
+        if not self.is_socket_connected():
             return False
         if not self._connect_session():
             return False
-        if not self.open_channel():
+        if not self._authenticate():
             return False
         return True
 
@@ -111,5 +118,5 @@ class SSHClient(object):
         self.close_tunnel()
         self.close_channel()
         self._close_session()
-        if self.is_connected():
+        if self.is_socket_connected():
             self._close_socket()

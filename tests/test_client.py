@@ -12,7 +12,7 @@ knownhost_salt = "testsalt"
 class CommonClientTestCases:
     def test_client_connection(self):
         self.assertTrue(self.client.connect())
-        self.assertTrue(self.client.is_connected())
+        self.assertTrue(self.client.is_socket_connected())
         self.client.disconnect()
 
 
@@ -41,24 +41,42 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
     def test_socket_connection(self):
         self.assertTrue(self.client._init_socket())
         self.assertTrue(self.client._connect_socket())
-        self.assertTrue(self.client.is_connected())
+        self.assertTrue(self.client.is_socket_connected())
         self.client._close_socket()
-        self.assertFalse(self.client.is_connected())
+        self.assertFalse(self.client.is_socket_connected())
 
-    def test_client_connection(self):
+    def test_client_session_connection(self):
         self.assertTrue(self.client._init_socket())
         self.assertTrue(self.client._connect_socket())
-        self.assertTrue(self.client.is_connected())
+        self.assertTrue(self.client.is_socket_connected())
 
         self.assertTrue(self.client._init_session())
         self.assertTrue(self.client._connect_session())
         self.client._close_session()
         self.client._close_socket()
-        self.assertFalse(self.client.is_connected())
+        self.assertFalse(self.client.is_socket_connected())
 
     def test_client_authentication(self):
-        self.assertFalse(self.client.is_connected())
-        self.assertTrue(self.client.connect())
-        self.assertTrue(self.client.is_connected())
+        self.assertFalse(self.client.is_socket_connected())
+        self.assertTrue(self.client._init_socket())
+        self.assertTrue(self.client._connect_socket())
+        self.assertTrue(self.client.is_socket_connected())
+        self.assertTrue(self.client._connect_session())
+        self.assertTrue(self.client._authenticate())
         self.client.disconnect()
-        self.assertFalse(self.client.is_connected())
+        self.assertFalse(self.client.is_socket_connected())
+
+    def test_client_connect(self):
+        self.assertFalse(self.client.is_socket_connected())
+        self.assertTrue(self.client.connect())
+        self.assertTrue(self.client.is_socket_connected())
+        self.client.disconnect()
+        self.assertFalse(self.client.is_socket_connected())
+
+    def test_client_channel(self):
+        self.assertTrue(self.client.connect())
+        self.assertTrue(self.client.open_channel())
+        self.assertTrue(self.client.channel)
+        self.client.close_channel()
+        self.assertIsNone(self.client.channel)
+        self.client.disconnect()

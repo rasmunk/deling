@@ -134,6 +134,47 @@ class SSHAuthenticator:
             self._is_prepared = True
         return self.is_prepared
 
+    def authenticate(self, session):
+        # Ensure that libssh2 receives the correct types
+        if not self._credentials.password:
+            passphrase = ""
+        else:
+            if not isinstance(self._credentials.password, str):
+                passphrase = str(self._credentials.password)
+            else:
+                passphrase = self._credentials.password
+        # Use private key authentication if a private key is provided
+        if self._credentials.private_key:
+            if self._credentials.public_key:
+                if isinstance(self._credentials.public_key, str):
+                    publickeyfiledata = bytes(
+                        self._credentials.public_key, encoding="utf-8"
+                    )
+                elif isinstance(self._credentials.public_key, bytes):
+                    publickeyfiledata = self._credentials.public_key
+                else:
+                    raise TypeError("public_key must be a string or bytes")
+            else:
+                publickeyfiledata = None
+            session.userauth_publickey_frommemory(
+                self._credentials.username,
+                bytes(self._credentials.private_key, encoding="utf-8"),
+                passphrase=passphrase,
+                publickeyfiledata=publickeyfiledata,
+            )
+        elif self._credentials.private_key_file:
+            session.userauth_publickey_fromfile(
+                self._credentials.username,
+                self._credentials.private_key_file,
+                passphrase=passphrase,
+                publickey=self._credentials.public_key_file,
+            )
+        elif self._credentials.password and passphrase:
+            session.userauth_password(self._credentials.username, passphrase)
+        else:
+            raise ValueError("No valid authentication method found")
+        return True
+
     def cleanup(self, endpoint):
         credentials_removed = self.remove_credentials()
         known_host_removed = self.remove_from_known_hosts(endpoint)
