@@ -1,6 +1,7 @@
 import unittest
 import os
 from random import random
+from ssh2.sftp import SFTP
 from deling.clients.ssh import SSHClient, CHANNEL_TYPE_SFTP
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.utils.io import exists, makedirs, removedirs
@@ -84,7 +85,9 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
     def test_client_sftp_channel(self):
         self.assertTrue(self.client.connect())
         self.assertTrue(self.client.open_channel(channel_type=CHANNEL_TYPE_SFTP))
-        self.assertIsNone(self.client.channel)
-        self.client.close_channel()
-        self.assertIsNone(self.client.channel)
+        sftp_channel = self.client.get_channel(channel_type=CHANNEL_TYPE_SFTP)
+        self.assertIsInstance(sftp_channel, SFTP)
+        self.assertEqual(sftp_channel, self.client.sftp_channel)
+        self.client.close_channel(channel_type=CHANNEL_TYPE_SFTP)
+        self.assertIsNone(self.client.sftp_channel)
         self.client.disconnect()
