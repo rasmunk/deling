@@ -14,11 +14,11 @@ class SSHClient(object):
         if isinstance(port, str):
             self.port = int(port)
         self.proxy = proxy
-
         self.socket = None
         self.session = None
         self.channel = None
         self.sftp_channel = None
+
 
     def __del__(self):
         self.disconnect()

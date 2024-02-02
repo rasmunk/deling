@@ -15,7 +15,7 @@ ifneq ($(shell test -e .env && echo yes), yes)
 endif
 endif
 
-clean:
+clean: distclean
 	rm -fr .env
 	rm -fr .pytest_cache
 	rm -fr tests/__pycache__
