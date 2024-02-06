@@ -13,6 +13,8 @@ class SSHClient(object):
         self.authenticator = authenticator
         if isinstance(port, str):
             self.port = int(port)
+        else:
+            self.port = port
         self.proxy = proxy
 
         self.socket = None
