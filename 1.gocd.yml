@@ -1,9 +1,9 @@
 environments:
-  bare_metal_pypi_package:
+  pypi_package:
     environment_variables:
       GIT_USER: "{{SECRET:[github][username]}}"
-      ERDA_TEST_SHARE: "{{SECRET:[deling][erda_test_share]}}"
-      LD_LIBRARY_PATH: /usr/local/lib/x86_64-linux-gnu
+      TWINE_USERNAME: "{{SECRET:[pypi][deling][username]}}"
+      TWINE_PASSWORD: "{{SECRET:[pypi][deling][password]}}"
     pipelines:
       - deling
 pipelines:
