@@ -1,6 +1,7 @@
 import unittest
 import os
 import sys
+import stat
 from random import random
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
@@ -308,17 +309,53 @@ class TestDataStoreCases:
         self.assertTrue(self.share.remove(filename + "_copy"))
         self.assertNotIn(filename + "_copy", self.share.listdir())
 
-    # def test_list_attr_file(self):
-    #     list_attr_file = "list_attr_file_{}".format(self.seed)
-    #     content = "Hello There"
-    #     self.assertTrue(self.share.write(list_attr_file, content))
-    #     self.assertIn(list_attr_file, self.share.listdir())
-    #     self.assertEqual(self.share.read(list_attr_file), content)
-    #     self.assertTrue(self.share.remove(list_attr_file))
-    #     self.assertNotIn(list_attr_file, self.share.listdir())
+    def test_stat(self):
+        filename = "stat_file_{}".format(self.seed)
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
+        upload_file = os.path.join(tmp_test_dir, filename)
+
+        size = 1024 * 1024
+        self.assertTrue(gen_random_file(upload_file, size=size))
+        self.assertTrue(os.path.exists(upload_file))
+
+        self.assertTrue(self.share.upload(upload_file, filename))
+        self.assertIn(filename, self.share.listdir())
+
+        file_stat = self.share.stat(filename)
+        self.assertNotEqual(file_stat, False)
+        self.assertEqual(file_stat.filesize, size)
+
+        self.assertTrue(self.share.remove(filename))
+        self.assertNotIn(filename, self.share.listdir())
+
+    def test_setstat(self):
+        filename = "set_stat_file_{}".format(self.seed)
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
+        upload_file = os.path.join(tmp_test_dir, filename)
+
+        size = 1024 * 1024
+        self.assertTrue(gen_random_file(upload_file, size=size))
+        self.assertTrue(os.path.exists(upload_file))
+
+        self.assertTrue(self.share.upload(upload_file, filename))
+        self.assertIn(filename, self.share.listdir())
+        current_stats = self.share.stat(filename)
+        self.assertNotEqual(current_stats, False)
+
+        new_permissions = 0o0000700 | 0o0000070 | 0o0000007
+        current_stats.permissions = new_permissions
+        self.assertTrue(self.share.setstat(filename, current_stats), False)
+
+        new_stats = self.share.stat(filename)
+        self.assertNotEqual(new_stats, False)
+        self.assertEqual(stat.S_IMODE(new_stats.permissions), new_permissions)
 
 
-class TestDataStoreSeekOffsetCases:
+class TestDataStoreFileHandleCases:
     def setUp(self):
         self.seed = str(random())[2:10]
         self.seek_file = "".join(["seek_file", self.seed])
@@ -413,6 +450,26 @@ class TestDataStoreSeekOffsetCases:
             end_content = _file.read()
             self.assertEqual(end_content, b" World")
 
+    def test_fstat_get(self):
+        with self.share.open(self.seek_file, "r") as _file:
+            file_stat = _file.fstat()
+            self.assertEqual(file_stat.filesize, len(self.data))
+
+        with self.share.open(self.seek_file, "rb") as _file:
+            file_stat = _file.fstat()
+            self.assertEqual(file_stat.filesize, len(self.data_bytes))
+
+    def test_fstatset(self):
+        with self.share.open(self.seek_file, "r") as _file:
+            file_stat = _file.fstat()
+            self.assertEqual(file_stat.filesize, len(self.data))
+            # 777
+            new_permissions = 0o0000700 | 0o0000070 | 0o0000007
+            file_stat.permissions = new_permissions
+            _file.fsetstat(file_stat)
+            new_file_stat = _file.fstat()
+            self.assertEqual(stat.S_IMODE(new_file_stat.permissions), new_permissions)
+
 
 class SSHFSStoreTest(TestDataStoreCases, unittest.TestCase):
     def setUp(self):
@@ -446,7 +503,7 @@ class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
         self.share = None
 
 
-class SFTPStoreSeekOffsetTest(TestDataStoreSeekOffsetCases, unittest.TestCase):
+class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
     def setUp(self):
         self.share = SFTPStore(
             host="127.0.0.1",
@@ -461,7 +518,7 @@ class SFTPStoreSeekOffsetTest(TestDataStoreSeekOffsetCases, unittest.TestCase):
         self.share = None
 
 
-class SSHFSStoreSeekOffsetTest(TestDataStoreSeekOffsetCases, unittest.TestCase):
+class SSHFSStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
     def setUp(self):
         username = "mountuser"
         password = "Passw0rd!"
@@ -480,7 +537,7 @@ class SSHFSStoreSeekOffsetTest(TestDataStoreSeekOffsetCases, unittest.TestCase):
         self.share = None
 
 
-class ERDASFTPShareSeekOffsetTest(TestDataStoreSeekOffsetCases, unittest.TestCase):
+class ERDASFTPShareFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
     def setUp(self):
         # Load Sharelinks
         try:

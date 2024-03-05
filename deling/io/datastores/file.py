@@ -4,23 +4,35 @@ from abc import abstractmethod
 class FileHandle:
     @abstractmethod
     def open(self):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def close(self):
-        pass
+        raise NotImplementedError
+
+    @abstractmethod
+    def fsetstat(self, attributes):
+        raise NotImplementedError
+
+    @abstractmethod
+    def fstat(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def sync(self):
+        raise NotImplementedError
 
     @abstractmethod
     def read(self):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def write(self, data):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def seek(self, data, whence=0):
-        pass
+        raise NotImplementedError
 
 
 class SFTPFileHandle(FileHandle):
@@ -50,6 +62,28 @@ class SFTPFileHandle(FileHandle):
         :return: None
         """
         self.fh.close()
+
+    def fsetstat(self, attributes):
+        """
+        Set file stat attributes on handle.
+        :param attributes: ssh2.sftp.SFTPAttribute
+        :return: None
+        """
+        self.fh.fsetstat(attributes)
+
+    def fstat(self):
+        """
+        Get file stat attributes from handle.
+        :return: ssh2.sftp.SFTPAttribute
+        """
+        return self.fh.fstat()
+
+    def sync(self):
+        """
+        Sync file handle to disk.
+        :return: None
+        """
+        self.fh.sync()
 
     def read(self, n=-1, encoding="utf-8"):
         """

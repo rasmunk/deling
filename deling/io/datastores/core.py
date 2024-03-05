@@ -30,35 +30,43 @@ class DataStore:
 
     @abstractmethod
     def disconnect(self):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def open(self, path, flag="r"):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def exists(self, path):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def listdir(self, path):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def mkdir(self, path, mode=755, **kwargs):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def rmdir(self, path):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def remove(self, path):
-        pass
+        raise NotImplementedError
+
+    @abstractmethod
+    def stat(self, path):
+        raise NotImplementedError
+
+    @abstractmethod
+    def setstat(self, path, attributes):
+        raise NotImplementedError
 
     @abstractmethod
     def close(self):
-        pass
+        raise NotImplementedError
 
 
 class SSHFSStore(DataStore):
@@ -482,6 +490,26 @@ class SFTPStore(DataStore):
             return self.rmdir(new_path, recursive=True)
         else:
             return self.rmdir(path, recursive=False)
+
+    def stat(self, path):
+        """
+        :param path: path to the file that should return it's stats
+        """
+        try:
+            return self._client.stat(path)
+        except Exception:
+            return False
+
+    def setstat(self, path, attributes):
+        """
+        :param path: path to the file that should have set their stat attributes
+        :param attributes: SFTPAttributes that should be applied to the path file
+        """
+        try:
+            self._client.setstat(path, attributes)
+            return True
+        except Exception:
+            return False
 
     def remove(self, path):
         """
