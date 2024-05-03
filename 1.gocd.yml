@@ -4,6 +4,7 @@ environments:
       GIT_USER: "{{SECRET:[github][username]}}"
       PYPI_USERNAME: "{{SECRET:[deling][username]}}"
       PYPI_PASSWORD: "{{SECRET:[deling][password]}}"
+      ERDA_TEST_SHARE: "{{SECRET:[deling][erda_test_share]}}"
     pipelines:
       - deling
 pipelines:
