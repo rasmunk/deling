@@ -23,6 +23,8 @@ pipelines:
       publish_python_git:
         git: https://github.com/rasmunk/publish-python-scripts.git
         branch: main
+        username: ${GIT_USER}
+        password: "{{SECRET:[github][access_token]}}"
         destination: publish-python-scripts
     parameters:
       ARGS: ''
