@@ -1,9 +1,9 @@
 environments:
-  pypi_package:
+  deling:
     environment_variables:
       GIT_USER: "{{SECRET:[github][username]}}"
-      TWINE_USERNAME: "{{SECRET:[pypi][deling][username]}}"
-      TWINE_PASSWORD: "{{SECRET:[pypi][deling][password]}}"
+      PYPI_USERNAME: "{{SECRET:[deling][username]}}"
+      PYPI_PASSWORD: "{{SECRET:[deling][password]}}"
     pipelines:
       - deling
 pipelines:
@@ -23,8 +23,6 @@ pipelines:
       publish_python_git:
         git: https://github.com/rasmunk/publish-python-scripts.git
         branch: main
-        username: ${GIT_USER}
-        password: "{{SECRET:[github][access_token]}}"
         destination: publish-python-scripts
     parameters:
       ARGS: ''
