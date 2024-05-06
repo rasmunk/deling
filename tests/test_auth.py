@@ -1,6 +1,7 @@
+import pytest
 import unittest
 import os
-from random import random
+import random
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore
 from deling.utils.io import exists, makedirs, removedirs
@@ -10,10 +11,17 @@ from deling.authenticators.ssh import (
     ssh_credentials_exists,
     remove_ssh_credentials,
 )
+from tests.helpers import make_container, wait_for_container_output
+
+
 
 # Set the test salt to use for hashing the known_hosts entry hostname
 knownhost_salt = "testsalt"
 
+IMAGE_OWNER = "ucphhpc"
+IMAGE_NAME = "ssh-mount-dummy"
+IMAGE_TAG = "edge"
+IMAGE = ''.join([IMAGE_OWNER, "/", IMAGE_NAME, ":", IMAGE_TAG])
 
 class AuthenticationTestCases:
     def test_username_password_authentication(self):
@@ -47,9 +55,28 @@ class AuthenticationTestCases:
             ssh_dir_path=self.test_ssh_dir, key_name=key_name
         )
         self.assertIsNotNone(ssh_credentials)
+        # Start dummy mount container where the public key is an
+        # authorized key
+        random_ssh_port = random.randint(2200, 2299)
+        ssh_dummy_cont = {
+            'image': IMAGE,
+            'detach': True,
+            'ports': {22: random_ssh_port},
+            'volumes': {
+                ssh_credentials.public_key_file: {
+                    'bind': '/home/mountuser/.ssh/authorized_keys',
+                    'mode': 'rw',
+                }
+            },
+        }
+        container = make_container(ssh_dummy_cont)
+        self.assertNotEqual(container, False)
+        self.assertEqual(container.status, "running")
+        self.assertTrue(wait_for_container_output(container.id, "Running the OpenSSH Server"))
+
         datastore = SFTPStore(
             host="127.0.0.1",
-            port="2222",
+            port=f"{random_ssh_port}",
             authenticator=SSHAuthenticator(
                 username=self.username,
                 private_key_file=ssh_credentials.private_key_file,
@@ -84,9 +111,28 @@ class AuthenticationTestCases:
             ssh_dir_path=self.test_ssh_dir, key_name=key_name
         )
         self.assertIsNotNone(ssh_credentials)
+        # Start dummy mount container where the public key is an
+        # authorized key
+        random_ssh_port = random.randint(2200, 2299)
+        ssh_dummy_cont = {
+            'image': IMAGE,
+            'detach': True,
+            'ports': {22: random_ssh_port},
+            'volumes': {
+                ssh_credentials.public_key_file: {
+                    'bind': '/home/mountuser/.ssh/authorized_keys',
+                    'mode': 'rw',
+                }
+            },
+        }
+        container = make_container(ssh_dummy_cont)
+        self.assertNotEqual(container, False)
+        self.assertEqual(container.status, "running")
+        self.assertTrue(wait_for_container_output(container.id, "Running the OpenSSH Server"))
+
         datastore = SFTPStore(
             host="127.0.0.1",
-            port="2222",
+            port=f"{random_ssh_port}",
             authenticator=SSHAuthenticator(
                 username=self.username,
                 private_key=ssh_credentials.private_key,
@@ -106,7 +152,7 @@ class AuthenticationTestCases:
 
 class SFTPStoreTestAuthentication(AuthenticationTestCases, unittest.TestCase):
     def setUp(self):
-        self.seed = str(random())[2:10]
+        self.seed = str(random.random())[2:10]
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
         self.test_ssh_dir = os.path.join(tmp_test_dir, "ssh-{}".format(self.seed))
         if not exists(self.test_ssh_dir):
