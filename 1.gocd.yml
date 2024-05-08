@@ -9,7 +9,7 @@ environments:
       - deling
 pipelines:
   deling:
-    group: pypi_package
+    group: bare_metal_pypi_package
     locking: off
     timer:
       # Run on the 1st at 00:00 of every month
@@ -32,4 +32,4 @@ pipelines:
       SRC_DIRECTORY: deling
       TEST_DIRECTORY: deling
       PUSH_DIRECTORY: publish-python-scripts
-    template: pypi_package
+    template: bare_metal_pypi_package
