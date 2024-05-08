@@ -22,7 +22,7 @@ IMAGE = "".join([IMAGE_OWNER, "/", IMAGE_NAME, ":", IMAGE_TAG])
 class AuthenticationTestCases:
     def test_username_password_authentication(self):
         datastore = SFTPStore(
-            host="127.0.0.1",
+            host=self.host,
             port=f"{self.random_ssh_port}",
             authenticator=SSHAuthenticator(
                 username=self.ssh_credentials.username,
@@ -35,7 +35,7 @@ class AuthenticationTestCases:
 
     def test_ed25519_file_key_authentication(self):
         datastore = SFTPStore(
-            host="127.0.0.1",
+            host=self.host,
             port=f"{self.random_ssh_port}",
             authenticator=SSHAuthenticator(
                 username=self.ssh_credentials.username,
@@ -49,7 +49,7 @@ class AuthenticationTestCases:
 
     def test_ed25519_key_memory_authentication(self):
         datastore = SFTPStore(
-            host="127.0.0.1",
+            host=self.host,
             port=f"{self.random_ssh_port}",
             authenticator=SSHAuthenticator(
                 username=self.ssh_credentials.username,
@@ -63,72 +63,66 @@ class AuthenticationTestCases:
 
 
 class SFTPStoreTestAuthentication(AuthenticationTestCases, unittest.TestCase):
-    def setUp(self):
-        self.seed = str(random.random())[2:10]
+    @classmethod
+    def setUpClass(cls):
+        cls.seed = str(random.random())[2:10]
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
-        self.test_ssh_dir = os.path.join(tmp_test_dir, "ssh-{}".format(self.seed))
-        if not exists(self.test_ssh_dir):
-            self.assertTrue(makedirs(self.test_ssh_dir))
+        cls.test_ssh_dir = os.path.join(tmp_test_dir, "ssh-{}".format(cls.seed))
+        if not exists(cls.test_ssh_dir):
+            self.assertTrue(makedirs(cls.test_ssh_dir))
+        # Start dummy mount container where the public key is an
+        # authorized key.
+        # Expose a random SSH port on the host that can be used for SSH
+        # testing againt the container
+        cls.host = "127.0.0.1"
+        cls.random_ssh_port = random.randint(2200, 2299)
+
         # Until ssh2-python supports libssh2 1.11.0,
         # RSA keys are not hashed with SHA256 but with the
         # deprecated and unsecure SHA1
         # https://github.com/ParallelSSH/ssh2-python/issues/183
         # https://github.com/libssh2/libssh2/releases/tag/libssh2-1.11.0
-        # For now, use ED25519 keys
+        # For now, use ED25519 keys"
 
         # Create an ssh key pair for testing
         key_type = "ed25519"
-        key_name = "id_{}_{}".format(key_type, self.seed)
-        self.assertTrue(
-            gen_ssh_key_pair(
-                ssh_dir_path=self.test_ssh_dir, key_name=key_name, key_type=key_type
-            )
+        key_name = "id_{}_{}".format(key_type, cls.seed)
+        assert gen_ssh_key_pair(
+            ssh_dir_path=cls.test_ssh_dir, key_name=key_name, key_type=key_type
         )
-        self.assertTrue(
-            ssh_credentials_exists(
-                ssh_dir_path=self.test_ssh_dir,
-                key_name=key_name,
-            )
+        assert ssh_credentials_exists(ssh_dir_path=cls.test_ssh_dir, key_name=key_name)
+
+        cls.ssh_credentials = load_rsa_key_pair(
+            ssh_dir_path=cls.test_ssh_dir, key_name=key_name
         )
-        self.ssh_credentials = load_rsa_key_pair(
-            ssh_dir_path=self.test_ssh_dir, key_name=key_name
-        )
-        self.assertIsNotNone(self.ssh_credentials)
-        self.ssh_credentials.username = "mountuser"
-        self.ssh_credentials.password = "Passw0rd!"
+        assert cls.ssh_credentials is not None
+        cls.ssh_credentials.username = "mountuser"
+        cls.ssh_credentials.password = "Passw0rd!"
 
         # Create an authorized key file that can be mounted inside the
         # dummy mount container.
-        self.authorized_key_file = os.path.join(self.test_ssh_dir, "authorized_keys")
-        self.assertTrue(
-            write(self.authorized_key_file, self.ssh_credentials.public_key)
-        )
-        self.assertTrue(chmod(self.authorized_key_file, 0o600))
+        cls.authorized_key_file = os.path.join(cls.test_ssh_dir, "authorized_keys")
+        assert write(cls.authorized_key_file, cls.ssh_credentials.public_key)
+        assert chmod(cls.authorized_key_file, 0o600)
 
-        # Start dummy mount container where the public key is an
-        # authorized key.
-        # Expose a random SSH port on the host that can be used for SSH
-        # testing againt the container
-        self.random_ssh_port = random.randint(2200, 2299)
         ssh_dummy_cont = {
             "image": IMAGE,
             "detach": True,
-            "ports": {22: self.random_ssh_port},
+            "ports": {22: cls.random_ssh_port},
             "volumes": [
-                f"{self.authorized_key_file}:/home/mountuser/.ssh/authorized_keys"
+                f"{cls.authorized_key_file}:/home/mountuser/.ssh/authorized_keys"
             ],
         }
-        self.container = make_container(ssh_dummy_cont)
-        self.assertNotEqual(self.container, False)
-        self.assertEqual(self.container.status, "running")
-        self.assertTrue(
-            wait_for_container_output(self.container.id, "Running the OpenSSH Server")
-        )
+        cls.container = make_container(ssh_dummy_cont)
+        assert cls.container
+        assert cls.container.status == "running"
+        assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
+        assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
 
-    def tearDown(self):
-        # Remove every file from test_ssh_dir
-        if exists(self.test_ssh_dir):
-            self.assertTrue(removedirs(self.test_ssh_dir, recursive=True))
+    @classmethod
+    def tearDownClass(cls):
         # Remove container
-        self.assertTrue(remove_container(self.container.id))
-        self.share = None
+        assert remove_container(cls.container.id)
+        # Remove every file from test_ssh_dir
+        if exists(cls.test_ssh_dir):
+            assert removedirs(cls.test_ssh_dir, recursive=True)
