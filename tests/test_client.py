@@ -5,7 +5,7 @@ from ssh2.sftp import SFTP
 from deling.clients.ssh import SSHClient, CHANNEL_TYPE_SFTP
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.utils.io import exists, makedirs, removedirs
-from tests.helpers import (
+from helpers import (
     make_container,
     wait_for_container_output,
     remove_container,

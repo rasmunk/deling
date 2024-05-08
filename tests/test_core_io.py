@@ -8,7 +8,7 @@ from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
 from deling.utils.io import hashsum, makedirs, exists
-from tests.helpers import (
+from helpers import (
     make_container,
     wait_for_container_output,
     remove_container,

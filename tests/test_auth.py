@@ -9,7 +9,7 @@ from deling.authenticators.ssh import (
     load_rsa_key_pair,
     ssh_credentials_exists,
 )
-from tests.helpers import (
+from helpers import (
     make_container,
     wait_for_container_output,
     remove_container,
