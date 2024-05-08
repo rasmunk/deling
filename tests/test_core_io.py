@@ -25,6 +25,9 @@ IMAGE = "".join([IMAGE_OWNER, "/", IMAGE_NAME, ":", IMAGE_TAG])
 
 
 class TestDataStoreCases:
+    def setUp(self):
+        self.seed = str(random.random())[2:10]
+
     def test_open_write(self):
         content = "sddsfeqwfiopqiodnqodniasd"
         write_file = "write_file_{}".format(self.seed)
@@ -482,53 +485,15 @@ class TestDataStoreFileHandleCases:
 
 
 class SSHFSStoreTest(TestDataStoreCases, unittest.TestCase):
-    def setUp(self):
-        username = "mountuser"
-        password = "Passw0rd!"
-
-        # Start dummy mount container where the public key is an
-        # authorized key.
-        # Expose a random SSH port on the host that can be used for SSH
-        # testing againt the container
-        self.random_ssh_port = random.randint(2200, 2299)
-        ssh_dummy_cont = {
-            "image": IMAGE,
-            "detach": True,
-            "ports": {22: self.random_ssh_port},
-        }
-        self.container = make_container(ssh_dummy_cont)
-        self.assertNotEqual(self.container, False)
-        self.assertEqual(self.container.status, "running")
-        self.assertTrue(
-            wait_for_container_output(self.container.id, "Running the OpenSSH Server")
-        )
-
-        home_path = os.path.join(os.sep, "home", username)
-        self.share = SSHFSStore(
-            host="127.0.0.1",
-            port=f"{self.random_ssh_port}",
-            username=username,
-            password=password,
-            path=home_path,
-        )
-        self.seed = str(random())[2:10]
-
-    def tearDown(self):
-        # Remove container
-        self.assertTrue(remove_container(self.container.id))
-        self.share = None
-
-
-class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
-    def setUp(self):
-        self.seed = str(random.random())[2:10]
-
     @classmethod
     def setUpClass(cls):
         # Start dummy mount container where the public key is an
         # authorized key.
         # Expose a random SSH port on the host that can be used for SSH
         # testing againt the container
+        username = "mountuser"
+        password = "Passw0rd!"
+
         cls.host = "127.0.0.1"
         cls.random_ssh_port = random.randint(2200, 2299)
         ssh_dummy_cont = {
@@ -540,13 +505,18 @@ class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
         assert cls.container
         assert cls.container.status == "running"
         assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
-        assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
-
-        cls.share = SFTPStore(
-            host=cls.host,
-            port=f"{cls.random_ssh_port}",
-            authenticator=SSHAuthenticator(username="mountuser", password="Passw0rd!"),
-        )
+        try:
+            assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
+            home_path = os.path.join(os.sep, "home", username)
+            cls.share = SSHFSStore(
+                host="127.0.0.1",
+                port=f"{cls.random_ssh_port}",
+                username=username,
+                password=password,
+                path=home_path,
+            )
+        except AssertionError:
+            assert remove_container(cls.container.id)
 
     @classmethod
     def tearDownClass(cls):
@@ -555,11 +525,7 @@ class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
         cls.share = None
 
 
-class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
-    def setUp(self):
-        super().setUp()
-        self.seed = str(random.random())[2:10]
-
+class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Start dummy mount container where the public key is an
@@ -586,7 +552,44 @@ class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
                     username="mountuser", password="Passw0rd!"
                 ),
             )
-        except AssertionError as err:
+        except AssertionError:
+            assert remove_container(cls.container.id)
+
+    @classmethod
+    def tearDownClass(cls):
+        # Remove container
+        assert remove_container(cls.container.id)
+        cls.share = None
+
+
+class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Start dummy mount container where the public key is an
+        # authorized key.
+        # Expose a random SSH port on the host that can be used for SSH
+        # testing againt the container
+        cls.host = "127.0.0.1"
+        cls.random_ssh_port = random.randint(2200, 2299)
+        ssh_dummy_cont = {
+            "image": IMAGE,
+            "detach": True,
+            "ports": {22: cls.random_ssh_port},
+        }
+        cls.container = make_container(ssh_dummy_cont)
+        assert cls.container
+        assert cls.container.status == "running"
+        assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
+        try:
+            assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
+            cls.share = SFTPStore(
+                host=cls.host,
+                port=f"{cls.random_ssh_port}",
+                authenticator=SSHAuthenticator(
+                    username="mountuser", password="Passw0rd!"
+                ),
+            )
+        except AssertionError:
             assert remove_container(cls.container.id)
 
     @classmethod
@@ -597,22 +600,44 @@ class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
 
 
 class SSHFSStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
-    def setUp(self):
-        username = "mountuser"
-        password = "Passw0rd!"
-        home_path = os.path.join(os.sep, "home", username)
-        self.share = SSHFSStore(
-            host="127.0.0.1",
-            port="2222",
-            username=username,
-            password=password,
-            path=home_path,
-        )
-        super().setUp()
+    @classmethod
+    def setUpClass(cls):
+        # Start dummy mount container where the public key is an
+        # authorized key.
+        # Expose a random SSH port on the host that can be used for SSH
+        # testing againt the container
+        cls.host = "127.0.0.1"
+        cls.random_ssh_port = random.randint(2200, 2299)
+        ssh_dummy_cont = {
+            "image": IMAGE,
+            "detach": True,
+            "ports": {22: cls.random_ssh_port},
+        }
+        cls.container = make_container(ssh_dummy_cont)
+        assert cls.container
+        assert cls.container.status == "running"
+        assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
+        try:
+            assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
 
-    def tearDown(self):
-        super().tearDown()
-        self.share = None
+            username = "mountuser"
+            password = "Passw0rd!"
+            home_path = os.path.join(os.sep, "home", username)
+            cls.share = SSHFSStore(
+                host=cls.host,
+                port=cls.random_ssh_port,
+                username=username,
+                password=password,
+                path=home_path,
+            )
+        except AssertionError:
+            assert remove_container(cls.container.id)
+
+    @classmethod
+    def tearDownClass(cls):
+        # Remove container
+        assert remove_container(cls.container.id)
+        cls.share = None
 
 
 class ERDASFTPShareFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
@@ -643,8 +668,6 @@ class ERDASFTPShareFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCas
 
 
 class ERDASFTPShareTest(TestDataStoreCases, unittest.TestCase):
-    share = None
-
     def setUp(self):
         # Load Sharelinks
         try:

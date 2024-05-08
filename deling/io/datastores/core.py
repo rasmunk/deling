@@ -49,7 +49,7 @@ class DataStore:
         raise NotImplementedError
 
     @abstractmethod
-    def rmdir(self, path):
+    def rmdir(self, path, **kwargs):
         raise NotImplementedError
 
     @abstractmethod
@@ -218,7 +218,7 @@ class SSHFSStore(DataStore):
         except ResourceNotFound:
             return False
 
-    def rmdir(self, path):
+    def _rmdir(self, path):
         """
         :param path:
         path to the dir that should be removed
@@ -231,15 +231,52 @@ class SSHFSStore(DataStore):
         except ResourceNotFound:
             return False
 
-    def mkdir(self, path):
+    def rmdir(self, path, recursive=False):
+        """
+        :param path:
+        path to the dir that should be removed
+        :return:
+        Bool, whether a dir was removed or not
+        """
+        if not recursive:
+            return self._rmdir(path)
+
+        # TODO, update this to be able to recusively remove all
+        # non specified files and directories as would be expected
+        # from a recursive removal
+        if os.sep in path:
+            split_path = path.split(os.sep)
+            new_path = os.sep.join(split_path[:-1])
+            if not self._rmdir(path):
+                return False
+            return self.rmdir(new_path, recursive=True)
+        else:
+            return self.rmdir(path, recursive=False)
+
+    def mkdir(self, path, recursive=False, **kwargs):
         """
         :param path: path to the directory that should be created
         """
-        try:
-            self._client.makedir(path)
-            return True
-        except ResourceNotFound:
-            return False
+        split_path = path.split(os.sep) if recursive else [path]
+
+        if split_path[0] == "":
+            split_path[0] = os.sep
+        previous_dir = ""
+        for path_part in split_path:
+            current_path = os.path.join(previous_dir, path_part)
+            if not self.exists(current_path):
+                try:
+                    self._client.makedir(current_path)
+                except ResourceNotFound:
+                    error = self._client.last_error()
+                    print(
+                        "Failed to create path: {} - error_code: {}".format(
+                            current_path, error
+                        )
+                    )
+                    return False
+            previous_dir = current_path
+        return True
 
     def info(self, path):
         """

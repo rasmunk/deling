@@ -1,15 +1,13 @@
-import pytest
 import unittest
 import os
 import random
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore
-from deling.utils.io import exists, makedirs, removedirs, write, remove, chmod
+from deling.utils.io import exists, makedirs, removedirs, write, chmod
 from deling.authenticators.ssh import (
     gen_ssh_key_pair,
     load_rsa_key_pair,
     ssh_credentials_exists,
-    remove_ssh_credentials,
 )
 from tests.helpers import (
     make_container,
@@ -74,7 +72,7 @@ class SFTPStoreTestAuthentication(AuthenticationTestCases, unittest.TestCase):
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
         cls.test_ssh_dir = os.path.join(tmp_test_dir, "ssh-{}".format(cls.seed))
         if not exists(cls.test_ssh_dir):
-            self.assertTrue(makedirs(cls.test_ssh_dir))
+            assert makedirs(cls.test_ssh_dir)
         # Start dummy mount container where the public key is an
         # authorized key.
         # Expose a random SSH port on the host that can be used for SSH
