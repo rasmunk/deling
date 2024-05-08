@@ -11,7 +11,12 @@ from deling.authenticators.ssh import (
     ssh_credentials_exists,
     remove_ssh_credentials,
 )
-from tests.helpers import make_container, wait_for_container_output, remove_container
+from tests.helpers import (
+    make_container,
+    wait_for_container_output,
+    remove_container,
+    wait_for_session,
+)
 
 IMAGE_OWNER = "ucphhpc"
 IMAGE_NAME = "ssh-mount-dummy"
