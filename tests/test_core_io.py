@@ -577,13 +577,17 @@ class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
         assert cls.container
         assert cls.container.status == "running"
         assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
-        assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
-
-        cls.share = SFTPStore(
-            host=cls.host,
-            port=f"{cls.random_ssh_port}",
-            authenticator=SSHAuthenticator(username="mountuser", password="Passw0rd!"),
-        )
+        try:
+            assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
+            cls.share = SFTPStore(
+                host=cls.host,
+                port=f"{cls.random_ssh_port}",
+                authenticator=SSHAuthenticator(
+                    username="mountuser", password="Passw0rd!"
+                ),
+            )
+        except AssertionError as err:
+            assert remove_container(cls.container.id)
 
     @classmethod
     def tearDownClass(cls):
