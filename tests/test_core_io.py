@@ -3,20 +3,17 @@ import os
 import sys
 import stat
 import random
-from utils import gen_random_file
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
 from deling.utils.io import hashsum, makedirs, exists
+from utils import gen_random_file
 from helpers import (
     make_container,
     wait_for_container_output,
     remove_container,
     wait_for_session,
 )
-
-# Set the test salt to use for hashing the known_hosts entry hostname
-knownhost_salt = "testsalt"
 
 IMAGE_OWNER = "ucphhpc"
 IMAGE_NAME = "ssh-mount-dummy"
