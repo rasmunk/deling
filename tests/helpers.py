@@ -1,6 +1,7 @@
 import time
 import docker
 import socket
+from ssh2.session import Session
 
 
 def make_container(options, max_attempts=10):
@@ -52,11 +53,41 @@ def remove_container(container_id, max_attempts=10):
     return False
 
 
-def check_port(host, port):
+def check_socket(host, port):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             result = sock.connect_ex((host, port))
             return result == 0
-    except socket.error:
+    except socket.error as err:
+        print("Failed to open socket: {}".format(err))
         return False
+    return False
+
+
+def open_session(host, port):
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect((host, port))
+            session = Session()
+            session.handshake(sock)
+    except Exception as e:
+        print("Failed to open session: {}".format(e))
+        return False
+    return True
+
+
+def wait_for_session(host, port, max_attempts=10):
+    attempt = 0
+    while attempt <= max_attempts:
+        socket_result = check_socket(host, port)
+        if not socket_result:
+            attempt += 1
+            time.sleep(1)
+            continue
+        session_result = open_session(host, port)
+        if not session_result:
+            attempt += 1
+            time.sleep(1)
+            continue
+        return True
     return False

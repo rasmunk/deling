@@ -12,7 +12,7 @@ from tests.helpers import (
     make_container,
     wait_for_container_output,
     remove_container,
-    check_port,
+    wait_for_session,
 )
 
 # Set the test salt to use for hashing the known_hosts entry hostname
@@ -540,7 +540,7 @@ class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
         assert cls.container
         assert cls.container.status == "running"
         assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
-        assert check_port(cls.host, cls.random_ssh_port)
+        assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
 
         cls.share = SFTPStore(
             host=cls.host,
@@ -577,7 +577,7 @@ class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
         assert cls.container
         assert cls.container.status == "running"
         assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
-        assert check_port(cls.host, cls.random_ssh_port)
+        assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
 
         cls.share = SFTPStore(
             host=cls.host,

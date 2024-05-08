@@ -98,6 +98,7 @@ class SSHAuthenticator:
             known_host = session.knownhost_init()
         except Exception as err:
             print("Failed to get known host: {}".format(err))
+            return False
         finally:
             sock.close()
         if not known_host:
@@ -133,10 +134,12 @@ class SSHAuthenticator:
             endpoint, port=port, knownhost_salt=knownhost_salt
         )
         if not ssh_known_host:
-            return False
+            raise ValueError("Failed to get known host")
         if str(ssh_known_host) not in self.get_known_hosts():
             if self.add_to_known_hosts(ssh_known_host):
                 self._is_prepared = True
+            else:
+                raise ValueError("Failed to add to known hosts")
         else:
             self._is_prepared = True
         return self.is_prepared
