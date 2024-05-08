@@ -439,21 +439,23 @@ def gen_ssh_key_pair(
     ssh_dir_path=default_ssh_path,
     key_name="id_ed25519",
     format_output_str=False,
-    password='""',
+    password="",
 ):
     generate_key_path = os.path.join(ssh_dir_path, key_name)
+    generate_command = [
+        "ssh-keygen",
+        "-t",
+        key_type,
+        "-b",
+        str(size),
+        "-f",
+        generate_key_path,
+        "-N",
+        password,
+    ]
+
     result = run(
-        [
-            "ssh-keygen",
-            "-t",
-            key_type,
-            "-b",
-            str(size),
-            "-f",
-            generate_key_path,
-            "-N",
-            password,
-        ],
+        generate_command,
         format_output_str=format_output_str,
     )
     if result["returncode"] == 0:

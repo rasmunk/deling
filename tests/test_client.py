@@ -1,13 +1,16 @@
 import unittest
 import os
-from random import random
+import random
 from ssh2.sftp import SFTP
 from deling.clients.ssh import SSHClient, CHANNEL_TYPE_SFTP
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.utils.io import exists, makedirs, removedirs
+from tests.helpers import make_container, wait_for_container_output, remove_container
 
-# Set the test salt to use for hashing the known_hosts entry hostname
-knownhost_salt = "testsalt"
+IMAGE_OWNER = "ucphhpc"
+IMAGE_NAME = "ssh-mount-dummy"
+IMAGE_TAG = "latest"
+IMAGE = "".join([IMAGE_OWNER, "/", IMAGE_NAME, ":", IMAGE_TAG])
 
 
 class CommonClientTestCases:
@@ -19,24 +22,42 @@ class CommonClientTestCases:
 
 class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
     def setUp(self):
-        self.seed = str(random())[2:10]
+        self.seed = str(random.random())[2:10]
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
         self.test_ssh_dir = os.path.join(tmp_test_dir, "ssh-{}".format(self.seed))
         if not exists(self.test_ssh_dir):
             self.assertTrue(makedirs(self.test_ssh_dir))
 
         host = "127.0.0.1"
-        port = "2222"
         username = "mountuser"
         password = "Passw0rd!"
 
+        # Start dummy mount container where the public key is an
+        # authorized key.
+        # Expose a random SSH port on the host that can be used for SSH
+        # testing againt the container
+        self.random_ssh_port = random.randint(2200, 2299)
+        ssh_dummy_cont = {
+            "image": IMAGE,
+            "detach": True,
+            "ports": {22: self.random_ssh_port},
+        }
+        self.container = make_container(ssh_dummy_cont)
+        self.assertNotEqual(self.container, False)
+        self.assertEqual(self.container.status, "running")
+        self.assertTrue(
+            wait_for_container_output(self.container.id, "Running the OpenSSH Server")
+        )
+
         authenticator = SSHAuthenticator(username=username, password=password)
-        self.client = SSHClient(host, authenticator, port=port)
+        self.client = SSHClient(host, authenticator, port=self.random_ssh_port)
 
     def tearDown(self):
         # Remove every file from test_ssh_dir
         if exists(self.test_ssh_dir):
             self.assertTrue(removedirs(self.test_ssh_dir, recursive=True))
+        # Remove container
+        self.assertTrue(remove_container(self.container.id))
         self.share = None
 
     def test_socket_connection(self):

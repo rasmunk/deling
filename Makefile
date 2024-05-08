@@ -55,8 +55,11 @@ installcheck:
 uninstallcheck:
 	$(VENV)/pip uninstall -y -r requirements.txt
 
+check_pre:
+	. $(VENV)/activate; python3 setup.py check -rms
+
 # The tests requires access to the docker socket
-check:
+check: check_pre
 	. $(VENV)/activate; pytest -s -v tests/
 
 include Makefile.venv

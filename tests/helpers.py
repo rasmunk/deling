@@ -1,5 +1,6 @@
 import time
 import docker
+import socket
 
 
 def make_container(options, max_attempts=10):
@@ -48,4 +49,14 @@ def remove_container(container_id, max_attempts=10):
             time.sleep(1)
         except docker.errors.NotFound:
             return True
+    return False
+
+
+def check_port(host, port):
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            result = sock.connect_ex((host, port))
+            return result == 0
+    except socket.error:
+        return False
     return False
