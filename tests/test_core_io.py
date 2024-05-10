@@ -7,7 +7,7 @@ from ssh2.sftp import LIBSSH2_SFTP_ATTR_PERMISSIONS
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
-from deling.utils.io import hashsum, makedirs, exists
+from deling.utils.io import hashsum, makedirs, exists, load
 from utils import gen_random_file
 from helpers import (
     make_container,
@@ -641,30 +641,39 @@ class SSHFSStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
 
 
 class ERDASFTPShareFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
-    def setUp(self):
-        # Load Sharelinks
-        try:
-            with open("res/sharelinks.txt", "r") as file:
-                content = file.readlines()
-            assert content is not None
-            assert len(content) > 0
-            sharelinks = dict((tuple(line.rstrip().split("=") for line in content)))
-        except IOError:
-            # CI
-            assert "ERDA_TEST_SHARE" in os.environ
-            sharelinks = {"ERDA_TEST_SHARE": os.environ["ERDA_TEST_SHARE"]}
-
-        # TODO, ensure that no more than 16 concurrent sessions are open
-        # since ERDA only allows 16 concurrent sessions per user
-        self.share = ERDASFTPShare(
-            username=sharelinks["ERDA_TEST_SHARE"],
-            password=sharelinks["ERDA_TEST_SHARE"],
+    @classmethod
+    def setUpClass(cls):
+        username = None
+        password = None
+        if "ERDA_TEST_SHARE" in os.environ:
+            username = os.environ["ERDA_TEST_SHARE"]
+            password = os.environ["ERDA_TEST_SHARE"]
+        else:
+            sharelinks_file_path = os.path.join("res", "sharelinks.txt")
+            if not exists(sharelinks_file_path):
+                raise Exception(
+                    f"Neither the 'ERDA_TEST_SHARE' environment variable has been set, nor is the {sharelinks_file_path} file present in the res directory that can be used for ERDA authentication"
+                )
+            sharelinks_content = load(sharelinks_file_path, readlines=True)
+            if not sharelinks_content:
+                raise Exception(f"No content found in {sharelinks_file_path}")
+            sharelinks = dict(
+                (tuple(line.rstrip().split("=") for line in sharelinks_content))
+            )
+            username = sharelinks["ERDA_TEST_SHARE"]
+            password = sharelinks["ERDA_TEST_SHARE"]
+        if not username:
+            raise Exception("No username found for ERDA authentication")
+        if not password:
+            raise Exception("No password found for ERDA authentication")
+        cls.share = ERDASFTPShare(
+            username=username,
+            password=password,
         )
-        super().setUp()
 
-    def tearDown(self):
-        super().tearDown()
-        self.share = None
+    @classmethod
+    def tearDownClass(cls):
+        cls.share = None
 
 
 class ERDASFTPShareTest(TestDataStoreCases, unittest.TestCase):
