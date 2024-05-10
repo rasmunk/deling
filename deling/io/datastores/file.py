@@ -69,7 +69,13 @@ class SFTPFileHandle(FileHandle):
         :param attributes: ssh2.sftp.SFTPAttribute
         :return: None
         """
-        self.fh.fsetstat(attributes)
+        try:
+            result = self.fh.fsetstat(attributes)
+            if result == 0:
+                return True
+        except Exception as e:
+            print(f"feststat failed with error: {e}")
+        return False
 
     def fstat(self):
         """

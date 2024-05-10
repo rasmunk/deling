@@ -3,6 +3,7 @@ import os
 import sys
 import stat
 import random
+from ssh2.sftp import LIBSSH2_SFTP_ATTR_PERMISSIONS
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
@@ -358,7 +359,8 @@ class TestDataStoreCases:
 
         new_permissions = 0o0000700 | 0o0000070 | 0o0000007
         current_stats.permissions = new_permissions
-        self.assertTrue(self.share.setstat(filename, current_stats), False)
+        current_stats.flags = LIBSSH2_SFTP_ATTR_PERMISSIONS
+        self.assertTrue(self.share.setstat(filename, current_stats))
 
         new_stats = self.share.stat(filename)
         self.assertNotEqual(new_stats, False)
@@ -476,7 +478,8 @@ class TestDataStoreFileHandleCases:
             # 777
             new_permissions = 0o0000700 | 0o0000070 | 0o0000007
             file_stat.permissions = new_permissions
-            _file.fsetstat(file_stat)
+            file_stat.flags = LIBSSH2_SFTP_ATTR_PERMISSIONS
+            self.assertTrue(_file.fsetstat(file_stat))
             new_file_stat = _file.fstat()
             self.assertEqual(stat.S_IMODE(new_file_stat.permissions), new_permissions)
 

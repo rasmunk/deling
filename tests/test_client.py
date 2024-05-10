@@ -26,7 +26,6 @@ class CommonClientTestCases:
 
 
 class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.seed = str(random.random())[2:10]
