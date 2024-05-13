@@ -168,7 +168,7 @@ class SSHAuthenticator:
                     "Failed to get the permissions of the known hosts file"
                 )
             if known_host_permissions != "0o600":
-                changed_permissions = chmod(known_host_file_path, "0o600")
+                changed_permissions = chmod(known_host_file_path, 0o600)
                 if not changed_permissions:
                     raise RuntimeError(
                         "Failed to change the permissions of the known hosts file"
