@@ -30,7 +30,8 @@ from deling.utils.io import (
     remove,
     exists,
     touch,
-    get_file_permissions,
+    get_path_permissions,
+    makedirs,
 )
 from deling.utils.run import run
 
@@ -141,13 +142,27 @@ class SSHAuthenticator:
         known_host_file_path = os.path.join(
             os.path.expanduser("~"), ".ssh", "known_hosts"
         )
+        # Ensure that the directory exists
+        known_host_dir = os.path.dirname(known_host_file_path)
+        if not exists(known_host_dir):
+            if not makedirs(known_host_dir):
+                raise RuntimeError(
+                    "Failed to create the known hosts directory which does not exist"
+                )
+        known_host_dir_permissions = get_path_permissions(known_host_dir)
+        if known_host_dir_permissions != "0o700":
+            if not chmod(known_host_dir, "0o700"):
+                raise RuntimeError(
+                    "Failed to change the permissions of the known hosts directory"
+                )
+
         if not exists(known_host_file_path):
             created_known_hosts = touch(known_host_file_path)
             if not created_known_hosts:
                 raise RuntimeError(
                     "Failed to create the known hosts file which does not exist"
                 )
-            known_host_permissions = get_file_permissions(known_host_file_path)
+            known_host_permissions = get_path_permissions(known_host_file_path)
             if not known_host_permissions:
                 raise RuntimeError(
                     "Failed to get the permissions of the known hosts file"

@@ -198,5 +198,5 @@ def touch(path, times=None, opener=None):
     return True
 
 
-def get_file_permissions(path):
+def get_path_permissions(path):
     return oct(stat.S_MODE(os.stat(path).st_mode))
