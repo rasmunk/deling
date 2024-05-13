@@ -199,4 +199,4 @@ def touch(path, times=None, opener=None):
 
 
 def get_path_permissions(path):
-    return oct(stat.S_MODE(os.stat(path).st_mode))
+    return oct(stat.S_IMODE(os.stat(path).st_mode))
