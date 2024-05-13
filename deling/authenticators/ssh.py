@@ -151,7 +151,7 @@ class SSHAuthenticator:
                 )
         known_host_dir_permissions = get_path_permissions(known_host_dir)
         if known_host_dir_permissions != "0o700":
-            if not chmod(known_host_dir, "0o700"):
+            if not chmod(known_host_dir, 0o700):
                 raise RuntimeError(
                     "Failed to change the permissions of the known hosts directory"
                 )
