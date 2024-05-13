@@ -4,6 +4,7 @@ import sys
 import stat
 import random
 from ssh2.sftp import LIBSSH2_SFTP_ATTR_PERMISSIONS
+from fs.permissions import Permissions
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
@@ -320,53 +321,6 @@ class TestDataStoreCases:
         self.assertTrue(self.share.remove(filename + "_copy"))
         self.assertNotIn(filename + "_copy", self.share.listdir())
 
-    def test_stat(self):
-        filename = "stat_file_{}".format(self.seed)
-        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
-        if not exists(tmp_test_dir):
-            self.assertTrue(makedirs(tmp_test_dir))
-        upload_file = os.path.join(tmp_test_dir, filename)
-
-        size = 1024 * 1024
-        self.assertTrue(gen_random_file(upload_file, size=size))
-        self.assertTrue(os.path.exists(upload_file))
-
-        self.assertTrue(self.share.upload(upload_file, filename))
-        self.assertIn(filename, self.share.listdir())
-
-        file_stat = self.share.stat(filename)
-        self.assertNotEqual(file_stat, False)
-        self.assertEqual(file_stat.filesize, size)
-
-        self.assertTrue(self.share.remove(filename))
-        self.assertNotIn(filename, self.share.listdir())
-
-    def test_setstat(self):
-        filename = "set_stat_file_{}".format(self.seed)
-        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
-        if not exists(tmp_test_dir):
-            self.assertTrue(makedirs(tmp_test_dir))
-        upload_file = os.path.join(tmp_test_dir, filename)
-
-        size = 1024 * 1024
-        self.assertTrue(gen_random_file(upload_file, size=size))
-        self.assertTrue(os.path.exists(upload_file))
-
-        self.assertTrue(self.share.upload(upload_file, filename))
-        self.assertIn(filename, self.share.listdir())
-        current_stats = self.share.stat(filename)
-        self.assertNotEqual(current_stats, False)
-
-        new_permissions = 0o0000700 | 0o0000070 | 0o0000007
-        current_stats.permissions = new_permissions
-        current_stats.flags = LIBSSH2_SFTP_ATTR_PERMISSIONS
-        self.assertTrue(self.share.setstat(filename, current_stats))
-
-        new_stats = self.share.stat(filename)
-        self.assertNotEqual(new_stats, False)
-        # FIXME, on ERDA the file permissions cannot be changed
-        # self.assertEqual(stat.S_IMODE(new_stats.permissions), new_permissions)
-
 
 class TestDataStoreFileHandleCases:
     def setUp(self):
@@ -463,28 +417,6 @@ class TestDataStoreFileHandleCases:
             end_content = _file.read()
             self.assertEqual(end_content, b" World")
 
-    def test_fstat_get(self):
-        with self.share.open(self.seek_file, "r") as _file:
-            file_stat = _file.fstat()
-            self.assertEqual(file_stat.filesize, len(self.data))
-
-        with self.share.open(self.seek_file, "rb") as _file:
-            file_stat = _file.fstat()
-            self.assertEqual(file_stat.filesize, len(self.data_bytes))
-
-    def test_fstatset(self):
-        with self.share.open(self.seek_file, "r") as _file:
-            file_stat = _file.fstat()
-            self.assertEqual(file_stat.filesize, len(self.data))
-            # 777
-            new_permissions = 0o0000700 | 0o0000070 | 0o0000007
-            file_stat.permissions = new_permissions
-            file_stat.flags = LIBSSH2_SFTP_ATTR_PERMISSIONS
-            self.assertTrue(_file.fsetstat(file_stat))
-            _file.fstat()
-            # FIXME, on ERDA the file permissions cannot be changed
-            # self.assertEqual(stat.S_IMODE(new_file_stat.permissions), new_permissions)
-
 
 class SSHFSStoreTest(TestDataStoreCases, unittest.TestCase):
     @classmethod
@@ -517,14 +449,63 @@ class SSHFSStoreTest(TestDataStoreCases, unittest.TestCase):
                 password=password,
                 path=home_path,
             )
-        except AssertionError:
+        except AssertionError as err:
+            print(f"Assertion error: {err}")
             assert remove_container(cls.container.id)
+            raise err
 
     @classmethod
     def tearDownClass(cls):
         # Remove container
         assert remove_container(cls.container.id)
         cls.share = None
+
+    def test_stat(self):
+        filename = "stat_file_{}".format(self.seed)
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
+        upload_file = os.path.join(tmp_test_dir, filename)
+
+        size = 1024 * 1024
+        self.assertTrue(gen_random_file(upload_file, size=size))
+        self.assertTrue(os.path.exists(upload_file))
+
+        self.assertTrue(self.share.upload(upload_file, filename))
+        self.assertIn(filename, self.share.listdir())
+
+        file_stat = self.share.stat(filename)
+        self.assertNotEqual(file_stat, False)
+        self.assertEqual(file_stat.size, size)
+
+        self.assertTrue(self.share.remove(filename))
+        self.assertNotIn(filename, self.share.listdir())
+
+    def test_setstat(self):
+        filename = "set_stat_file_{}".format(self.seed)
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
+        upload_file = os.path.join(tmp_test_dir, filename)
+
+        size = 1024 * 1024
+        self.assertTrue(gen_random_file(upload_file, size=size))
+        self.assertTrue(os.path.exists(upload_file))
+
+        self.assertTrue(self.share.upload(upload_file, filename))
+        self.assertIn(filename, self.share.listdir())
+        current_stats = self.share.stat(filename)
+        self.assertNotEqual(current_stats, False)
+
+        new_permissions = 0o0000700 | 0o0000070 | 0o0000007
+        permissions_dict = {
+            "access": {"permissions": Permissions(mode=new_permissions)}
+        }
+        self.assertTrue(self.share.setstat(filename, permissions_dict))
+
+        new_stats = self.share.stat(filename)
+        self.assertNotEqual(new_stats, False)
+        self.assertEqual(stat.S_IMODE(new_stats.permissions.mode), new_permissions)
 
 
 class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
@@ -563,6 +544,52 @@ class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
         assert remove_container(cls.container.id)
         cls.share = None
 
+    def test_stat(self):
+        filename = "stat_file_{}".format(self.seed)
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
+        upload_file = os.path.join(tmp_test_dir, filename)
+
+        size = 1024 * 1024
+        self.assertTrue(gen_random_file(upload_file, size=size))
+        self.assertTrue(os.path.exists(upload_file))
+
+        self.assertTrue(self.share.upload(upload_file, filename))
+        self.assertIn(filename, self.share.listdir())
+
+        file_stat = self.share.stat(filename)
+        self.assertNotEqual(file_stat, False)
+        self.assertEqual(file_stat.filesize, size)
+
+        self.assertTrue(self.share.remove(filename))
+        self.assertNotIn(filename, self.share.listdir())
+
+    def test_setstat(self):
+        filename = "set_stat_file_{}".format(self.seed)
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
+        upload_file = os.path.join(tmp_test_dir, filename)
+
+        size = 1024 * 1024
+        self.assertTrue(gen_random_file(upload_file, size=size))
+        self.assertTrue(os.path.exists(upload_file))
+
+        self.assertTrue(self.share.upload(upload_file, filename))
+        self.assertIn(filename, self.share.listdir())
+        current_stats = self.share.stat(filename)
+        self.assertNotEqual(current_stats, False)
+
+        new_permissions = 0o0000700 | 0o0000070 | 0o0000007
+        current_stats.permissions = new_permissions
+        current_stats.flags = LIBSSH2_SFTP_ATTR_PERMISSIONS
+        self.assertTrue(self.share.setstat(filename, current_stats))
+
+        new_stats = self.share.stat(filename)
+        self.assertNotEqual(new_stats, False)
+        self.assertEqual(stat.S_IMODE(new_stats.permissions), new_permissions)
+
 
 class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
     @classmethod
@@ -599,6 +626,28 @@ class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
         # Remove container
         assert remove_container(cls.container.id)
         cls.share = None
+
+    def test_fstat_get(self):
+        with self.share.open(self.seek_file, "r") as _file:
+            file_stat = _file.fstat()
+            self.assertEqual(file_stat.filesize, len(self.data))
+
+        with self.share.open(self.seek_file, "rb") as _file:
+            file_stat = _file.fstat()
+            self.assertEqual(file_stat.filesize, len(self.data_bytes))
+
+    def test_fstatset(self):
+        with self.share.open(self.seek_file, "r") as _file:
+            file_stat = _file.fstat()
+            self.assertEqual(file_stat.filesize, len(self.data))
+            # 777
+            new_permissions = 0o0000700 | 0o0000070 | 0o0000007
+            file_stat.permissions = new_permissions
+            file_stat.flags = LIBSSH2_SFTP_ATTR_PERMISSIONS
+            self.assertTrue(_file.fsetstat(file_stat))
+
+            new_file_stat = _file.fstat()
+            self.assertEqual(stat.S_IMODE(new_file_stat.permissions), new_permissions)
 
 
 class SSHFSStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
@@ -808,3 +857,41 @@ class ERDASFTPShareTest(TestDataStoreCases, unittest.TestCase):
             with self.share.open(self.write_image, "rb") as new_b_file:
                 new_image = new_b_file.read()
                 self.assertGreaterEqual(sys.getsizeof(new_image), 133246888)
+
+    def test_stat(self):
+        filename = "stat_file_{}".format(self.seed)
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
+        upload_file = os.path.join(tmp_test_dir, filename)
+
+        size = 1024 * 1024
+        self.assertTrue(gen_random_file(upload_file, size=size))
+        self.assertTrue(os.path.exists(upload_file))
+
+        self.assertTrue(self.share.upload(upload_file, filename))
+        self.assertIn(filename, self.share.listdir())
+
+        file_stat = self.share.stat(filename)
+        self.assertNotEqual(file_stat, False)
+        self.assertEqual(file_stat.filesize, size)
+
+        self.assertTrue(self.share.remove(filename))
+        self.assertNotIn(filename, self.share.listdir())
+
+    def test_setstat(self):
+        filename = "set_stat_file_{}".format(self.seed)
+        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
+        if not exists(tmp_test_dir):
+            self.assertTrue(makedirs(tmp_test_dir))
+        upload_file = os.path.join(tmp_test_dir, filename)
+
+        size = 1024 * 1024
+        self.assertTrue(gen_random_file(upload_file, size=size))
+        self.assertTrue(os.path.exists(upload_file))
+
+        self.assertTrue(self.share.upload(upload_file, filename))
+        self.assertIn(filename, self.share.listdir())
+        current_stats = self.share.stat(filename)
+        self.assertNotEqual(current_stats, False)
+        # On ERDA, you can't change the file permissions

@@ -1,5 +1,6 @@
 import os
-import fs
+from fs.sshfs import SSHFS
+from fs.subfs import ClosingSubFS
 from abc import abstractmethod
 from fs.errors import ResourceNotFound
 from ssh2.exceptions import SFTPProtocolError
@@ -70,12 +71,14 @@ class DataStore:
 
 
 class SSHFSStore(DataStore):
-    def __init__(self, host=None, username=None, password=None, port="22", path="."):
+    def __init__(
+        self, host=None, username=None, password=None, port="22", path=".", **kwargs
+    ):
         if isinstance(port, int):
             port = str(port)
-        client = fs.open_fs(
-            "ssh://" + username + ":" + password + "@" + host + ":" + port + "/" + path
-        )
+        client = SSHFS(host, user=username, passwd=password, port=port, **kwargs)
+        if path:
+            client = client.opendir(path, factory=ClosingSubFS)
         self._is_connected = True
         super(SSHFSStore, self).__init__(client)
 
@@ -205,6 +208,26 @@ class SSHFSStore(DataStore):
             fh.write(data)
             return True
 
+    def stat(self, path, namespaces=["access", "details"]):
+        """
+        :param path: path to the file that should return it's stats
+        """
+        try:
+            return self._client.getinfo(path, namespaces)
+        except Exception:
+            return False
+
+    def setstat(self, path, attributes):
+        """
+        :param path: path to the file that should have set their stat attributes
+        :param attributes: a dictionary that contains the 'access' and 'details' dictionary keys
+        """
+        try:
+            self._client.setinfo(path, attributes)
+            return True
+        except Exception:
+            return False
+
     def remove(self, path):
         """
         :param path:
@@ -287,6 +310,46 @@ class SSHFSStore(DataStore):
         """
         return self._client.getinfo(path, namespaces=["lstat"])
 
+    def upload(self, local_path, remote_path, file_format="binary"):
+        """
+        :param local_path: The path to the local file
+        :param remote_path: The path to the remote file
+        """
+        r_mode = "rb" if file_format == "binary" else "r"
+        w_mode = "wb" if file_format == "binary" else "w"
+
+        # TODO, add exception handling
+        with open(local_path, r_mode) as fh:
+            with self.open(remote_path, w_mode) as remote_fh:
+                remote_fh.write(fh.read())
+        return True
+
+    def download(self, remote_path, local_path, file_format="binary"):
+        """
+        :param remote_path: The path to the remote file
+        :param local_path: The path to the local file
+        """
+
+        r_mode = "rb" if file_format == "binary" else "r"
+        w_mode = "wb" if file_format == "binary" else "w"
+
+        # TODO, add exception handling
+        with self.open(remote_path, r_mode) as fh:
+            with open(local_path, w_mode) as local_fh:
+                local_fh.write(fh.read())
+        return True
+
+    def copy(self, remote_src, remote_dest):
+        """
+        :param remote_src: The path to the remote source file
+        :param remote_dest: The path to the remote destination file
+        """
+        # TODO, add exception handling
+        with self.open(remote_src, "rb") as src:
+            with self.open(remote_dest, "wb") as dest:
+                dest.write(src.read())
+        return True
+
 
 class SFTPStore(DataStore):
     def __init__(self, host, port, authenticator, authenticator_prepare_kwargs=None):
@@ -333,8 +396,7 @@ class SFTPStore(DataStore):
         :param path: path to file on the sftp end
         :param flag: open mode, either 'r'=read, 'w'=write, 'a'=append
         'rb'=read binary, 'wb'=write binary or 'ab'= append binary
-        :return: SFTPHandle, https://github.com/ParallelSSH/ssh2-python
-        /blob/master/ssh2/sftp_handle.pyx
+        :return: SFTPFileHandle
         """
         if flag == "r" or flag == "rb":
             r_flags = LIBSSH2_FXF_READ
