@@ -29,6 +29,8 @@ from deling.utils.io import (
     chmod,
     remove,
     exists,
+    touch,
+    get_file_permissions,
 )
 from deling.utils.run import run
 
@@ -135,8 +137,30 @@ class SSHAuthenticator:
         )
         if not ssh_known_host:
             raise ValueError("Failed to get known host")
-        if str(ssh_known_host) not in self.get_known_hosts():
-            if self.add_to_known_hosts(ssh_known_host):
+
+        known_host_file_path = os.path.join(
+            os.path.expanduser("~"), ".ssh", "known_hosts"
+        )
+        if not exists(known_host_file_path):
+            created_known_hosts = touch(known_host_file_path)
+            if not created_known_hosts:
+                raise RuntimeError(
+                    "Failed to create the known hosts file which does not exist"
+                )
+            known_host_permissions = get_file_permissions(known_host_file_path)
+            if not known_host_permissions:
+                raise RuntimeError(
+                    "Failed to get the permissions of the known hosts file"
+                )
+            if known_host_permissions != "0o600":
+                changed_permissions = chmod(known_host_file_path, "0o600")
+                if not changed_permissions:
+                    raise RuntimeError(
+                        "Failed to change the permissions of the known hosts file"
+                    )
+
+        if str(ssh_known_host) not in self.get_known_hosts(known_host_file_path):
+            if self.add_to_known_hosts(known_host_file_path, ssh_known_host):
                 self._is_prepared = True
             else:
                 raise ValueError("Failed to add to known hosts")
@@ -230,8 +254,7 @@ class SSHAuthenticator:
             release_lock(authorized_lock)
         return True
 
-    def add_to_known_hosts(self, ssh_known_host):
-        path = os.path.join(os.path.expanduser("~"), ".ssh", "known_hosts")
+    def add_to_known_hosts(self, path, ssh_known_host):
         lock_path = f"{path}_lock"
         known_host_str = f"{ssh_known_host}"
         try:
@@ -244,9 +267,7 @@ class SSHAuthenticator:
             release_lock(known_hosts_lock)
         return False
 
-    def get_known_hosts(self, path=None):
-        if not path:
-            path = os.path.join(os.path.expanduser("~"), ".ssh", "known_hosts")
+    def get_known_hosts(self, path):
         return load(path, readlines=True)
 
     def remove_from_known_hosts(self, endpoint):

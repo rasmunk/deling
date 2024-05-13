@@ -23,7 +23,7 @@ IMAGE_TAG = "latest"
 IMAGE = "".join([IMAGE_OWNER, "/", IMAGE_NAME, ":", IMAGE_TAG])
 
 
-class TestDataStoreCases:
+class CommonDataStoreTests:
     def setUp(self):
         self.seed = str(random.random())[2:10]
 
@@ -322,7 +322,7 @@ class TestDataStoreCases:
         self.assertNotIn(filename + "_copy", self.share.listdir())
 
 
-class TestDataStoreFileHandleCases:
+class CommonDataStoreFileHandleTests:
     def setUp(self):
         self.seed = str(random.random())[2:10]
         self.seek_file = "".join(["seek_file", self.seed])
@@ -418,7 +418,7 @@ class TestDataStoreFileHandleCases:
             self.assertEqual(end_content, b" World")
 
 
-class SSHFSStoreTest(TestDataStoreCases, unittest.TestCase):
+class SSHFSStoreTest(CommonDataStoreTests, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Start dummy mount container where the public key is an
@@ -508,7 +508,7 @@ class SSHFSStoreTest(TestDataStoreCases, unittest.TestCase):
         self.assertEqual(stat.S_IMODE(new_stats.permissions.mode), new_permissions)
 
 
-class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
+class SFTPStoreTest(CommonDataStoreTests, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Start dummy mount container where the public key is an
@@ -591,7 +591,7 @@ class SFTPStoreTest(TestDataStoreCases, unittest.TestCase):
         self.assertEqual(stat.S_IMODE(new_stats.permissions), new_permissions)
 
 
-class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
+class SFTPStoreFileHandleTest(CommonDataStoreFileHandleTests, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Start dummy mount container where the public key is an
@@ -650,7 +650,7 @@ class SFTPStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
             self.assertEqual(stat.S_IMODE(new_file_stat.permissions), new_permissions)
 
 
-class SSHFSStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
+class SSHFSStoreFileHandleTest(CommonDataStoreFileHandleTests, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Start dummy mount container where the public key is an
@@ -691,7 +691,7 @@ class SSHFSStoreFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
         cls.share = None
 
 
-class ERDASFTPShareFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCase):
+class ERDASFTPShareFileHandleTest(CommonDataStoreFileHandleTests, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         username = None
@@ -727,7 +727,7 @@ class ERDASFTPShareFileHandleTest(TestDataStoreFileHandleCases, unittest.TestCas
         cls.share = None
 
 
-class ERDASFTPShareTest(TestDataStoreCases, unittest.TestCase):
+class ERDASFTPShareTest(CommonDataStoreTests, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         username = None

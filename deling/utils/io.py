@@ -1,4 +1,5 @@
 import os
+import stat
 import fcntl
 import yaml
 import shutil
@@ -182,3 +183,20 @@ def hashsum(path, algorithm="sha1", buffer_size=65536):
     except Exception as err:
         print("Failed to calculate hashsum: {} - {}".format(path, err))
     return False
+
+
+def touch(path, times=None, opener=None):
+    if not opener:
+        opener = open
+
+    try:
+        with opener(path, "a"):
+            os.utime(path, times)
+    except Exception as err:
+        print("Failed to touch file: {} - {}".format(path, err))
+        return False
+    return True
+
+
+def get_file_permissions(path):
+    return oct(stat.S_MODE(os.stat(path).st_mode))
