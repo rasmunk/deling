@@ -3,7 +3,7 @@ import sphinx_rtd_theme
 
 # -- Project information -----------------------------------------------------
 
-project = "modi-helper-scripts"
+project = "deling"
 copyright = "2024 Rasmus Munk"
 author = "Rasmus Munk"
 
