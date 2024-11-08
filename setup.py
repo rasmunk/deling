@@ -1,3 +1,19 @@
+# Copyright (C) 2024  rasmunk
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
 import os
 from setuptools import setup, find_packages
 
@@ -27,7 +43,7 @@ setup(
     long_description=long_description,
     author="Rasmus Munk",
     author_email="munk1@live.dk",
-    license="MIT",
+    license="GNU General Public License v2 (GPLv2)",
     keywords="Data IO, Staging data, Data transfer, Data storage, Data management",
     url="https://github.com/rasmunk/deling",
     packages=find_packages(),
@@ -40,7 +56,7 @@ setup(
     classifiers=[
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
-        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",

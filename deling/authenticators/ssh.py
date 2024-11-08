@@ -1,3 +1,19 @@
+# Copyright (C) 2024  rasmunk
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
 import os
 import socket
 import base64
@@ -205,21 +221,33 @@ class SSHAuthenticator:
                     raise TypeError("public_key must be a string or bytes")
             else:
                 publickeyfiledata = None
-            session.userauth_publickey_frommemory(
-                self._credentials.username,
-                bytes(self._credentials.private_key, encoding="utf-8"),
-                passphrase=passphrase,
-                publickeyfiledata=publickeyfiledata,
-            )
+            try:
+                session.userauth_publickey_frommemory(
+                    self._credentials.username,
+                    bytes(self._credentials.private_key, encoding="utf-8"),
+                    passphrase=passphrase,
+                    publickeyfiledata=publickeyfiledata,
+                )
+            except Exception as err:
+                print("Failed to authenticate with private key in-memory: {}".format(err))
+                return False
         elif self._credentials.private_key_file:
-            session.userauth_publickey_fromfile(
-                self._credentials.username,
-                self._credentials.private_key_file,
-                passphrase=passphrase,
-                publickey=self._credentials.public_key_file,
-            )
+            try:
+                session.userauth_publickey_fromfile(
+                    self._credentials.username,
+                    self._credentials.private_key_file,
+                    passphrase=passphrase,
+                    publickey=self._credentials.public_key_file,
+                )
+            except Exception as err:
+                print("Failed to authenticate with private key file: {}".format(err))
+                return False
         elif self._credentials.password and passphrase:
-            session.userauth_password(self._credentials.username, passphrase)
+            try:
+                session.userauth_password(self._credentials.username, passphrase)
+            except Exception as err:
+                print("Failed to authenticate with password: {}".format(err))
+                return False
         else:
             raise ValueError("No valid authentication method found")
         return True
