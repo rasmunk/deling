@@ -50,4 +50,4 @@ pipelines:
       TEST_DIRECTORY: deling
       TEST_MAKE_ARGS: ''
       PUSH_DIRECTORY: publish-python-scripts
-    template: bare_metal_pypi_package
+    template: pypi_package
