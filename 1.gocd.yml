@@ -45,6 +45,10 @@ pipelines:
         destination: publish-python-scripts
     parameters:
       SRC_DIRECTORY: deling
+      BUILD_MAKE_TARGET: all
+      BUILD_MAKE_ARGS: ''
       TEST_DIRECTORY: deling
+      TEST_MAKE_TARGET: test
+      TEST_MAKE_ARGS: ''
       PUSH_DIRECTORY: publish-python-scripts
     template: pypi_package
