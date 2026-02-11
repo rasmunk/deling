@@ -25,7 +25,7 @@ environments:
       - deling
 pipelines:
   deling:
-    group: bare_metal_pypi_package
+    group: pypi_package
     locking: off
     timer:
       # Run on the 1st at 00:00 of every month
