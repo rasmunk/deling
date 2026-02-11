@@ -87,7 +87,8 @@ uninstalltest:
 
 .PHONY: test_pre
 test_pre:
-	. $(VENV)/activate; python3 setup.py test -rms
+	. $(VENV)/activate; python3 setup.py check -rms
+	. $(VENV)/activate; rstcheck README.rst
 
 # The tests requires access to the docker socket
 .PHONY: test
