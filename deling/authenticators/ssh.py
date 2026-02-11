@@ -229,7 +229,9 @@ class SSHAuthenticator:
                     publickeyfiledata=publickeyfiledata,
                 )
             except Exception as err:
-                print("Failed to authenticate with private key in-memory: {}".format(err))
+                print(
+                    "Failed to authenticate with private key in-memory: {}".format(err)
+                )
                 return False
         elif self._credentials.private_key_file:
             try:

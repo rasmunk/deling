@@ -90,9 +90,14 @@ test_pre:
 	. $(VENV)/activate; python3 setup.py check -rms
 	. $(VENV)/activate; rstcheck README.rst
 
+.PHONY: test_erda
+test_erda:
+	. $(VENV)/activate; pytest -m erda -s -v tests/erda/
+
+
 # The tests requires access to the docker socket
 .PHONY: test
 test: test_pre
-	. $(VENV)/activate; pytest -s -v tests/
+	. $(VENV)/activate; pytest -m 'not erda' -s -v tests/
 
 include Makefile.venv
