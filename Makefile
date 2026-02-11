@@ -75,14 +75,14 @@ uninstall:
 	$(VENV)/pip uninstall -y -r requirements-dev.txt
 	$(VENV)/pip uninstall -y -r $(PACKAGE_NAME)
 
-.PHONY: installtest
-installtest:
+.PHONY: install-test
+install-test:
 	$(VENV)/pip install -r tests/requirements.txt
 # deling must be installed into the relative venv before it can be tested
 	. $(VENV)/activate; pip install .
 
-.PHONY: uninstalltest
-uninstalltest:
+.PHONY: uninstall-test
+uninstall-test:
 	$(VENV)/pip uninstall -y -r requirements.txt
 
 .PHONY: test_pre
