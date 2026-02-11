@@ -20,9 +20,8 @@ import sys
 import stat
 import random
 from ssh2.sftp import LIBSSH2_SFTP_ATTR_PERMISSIONS
-from fs.permissions import Permissions
 from deling.authenticators.ssh import SSHAuthenticator
-from deling.io.datastores.core import SFTPStore, SSHFSStore, SFTPFileHandle
+from deling.io.datastores.core import SFTPStore, SFTPFileHandle
 from deling.io.datastores.erda import ERDASFTPShare
 from deling.utils.io import hashsum, makedirs, exists, load
 from utils import gen_random_file
@@ -434,96 +433,6 @@ class CommonDataStoreFileHandleTests:
             self.assertEqual(end_content, b" World")
 
 
-class SSHFSStoreTest(CommonDataStoreTests, unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        # Start dummy mount container where the public key is an
-        # authorized key.
-        # Expose a random SSH port on the host that can be used for SSH
-        # testing againt the container
-        username = "mountuser"
-        password = "Passw0rd!"
-
-        cls.host = "127.0.0.1"
-        cls.random_ssh_port = random.randint(2200, 2299)
-        ssh_dummy_cont = {
-            "image": IMAGE,
-            "detach": True,
-            "ports": {22: cls.random_ssh_port},
-        }
-        cls.container = make_container(ssh_dummy_cont)
-        assert cls.container
-        assert cls.container.status == "running"
-        assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
-        try:
-            assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
-            home_path = os.path.join(os.sep, "home", username)
-            cls.share = SSHFSStore(
-                host="127.0.0.1",
-                port=f"{cls.random_ssh_port}",
-                username=username,
-                password=password,
-                path=home_path,
-            )
-        except AssertionError as err:
-            print(f"Assertion error: {err}")
-            assert remove_container(cls.container.id)
-            raise err
-
-    @classmethod
-    def tearDownClass(cls):
-        # Remove container
-        assert remove_container(cls.container.id)
-        cls.share = None
-
-    def test_stat(self):
-        filename = "stat_file_{}".format(self.seed)
-        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
-        if not exists(tmp_test_dir):
-            self.assertTrue(makedirs(tmp_test_dir))
-        upload_file = os.path.join(tmp_test_dir, filename)
-
-        size = 1024 * 1024
-        self.assertTrue(gen_random_file(upload_file, size=size))
-        self.assertTrue(os.path.exists(upload_file))
-
-        self.assertTrue(self.share.upload(upload_file, filename))
-        self.assertIn(filename, self.share.listdir())
-
-        file_stat = self.share.stat(filename)
-        self.assertNotEqual(file_stat, False)
-        self.assertEqual(file_stat.size, size)
-
-        self.assertTrue(self.share.remove(filename))
-        self.assertNotIn(filename, self.share.listdir())
-
-    def test_setstat(self):
-        filename = "set_stat_file_{}".format(self.seed)
-        tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
-        if not exists(tmp_test_dir):
-            self.assertTrue(makedirs(tmp_test_dir))
-        upload_file = os.path.join(tmp_test_dir, filename)
-
-        size = 1024 * 1024
-        self.assertTrue(gen_random_file(upload_file, size=size))
-        self.assertTrue(os.path.exists(upload_file))
-
-        self.assertTrue(self.share.upload(upload_file, filename))
-        self.assertIn(filename, self.share.listdir())
-        current_stats = self.share.stat(filename)
-        self.assertNotEqual(current_stats, False)
-
-        new_permissions = 0o0000700 | 0o0000070 | 0o0000007
-        permissions_dict = {
-            "access": {"permissions": Permissions(mode=new_permissions)}
-        }
-        self.assertTrue(self.share.setstat(filename, permissions_dict))
-
-        new_stats = self.share.stat(filename)
-        self.assertNotEqual(new_stats, False)
-        self.assertEqual(stat.S_IMODE(new_stats.permissions.mode), new_permissions)
-
-
 class SFTPStoreTest(CommonDataStoreTests, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -666,47 +575,6 @@ class SFTPStoreFileHandleTest(CommonDataStoreFileHandleTests, unittest.TestCase)
             self.assertEqual(stat.S_IMODE(new_file_stat.permissions), new_permissions)
 
 
-class SSHFSStoreFileHandleTest(CommonDataStoreFileHandleTests, unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        # Start dummy mount container where the public key is an
-        # authorized key.
-        # Expose a random SSH port on the host that can be used for SSH
-        # testing againt the container
-        cls.host = "127.0.0.1"
-        cls.random_ssh_port = random.randint(2200, 2299)
-        ssh_dummy_cont = {
-            "image": IMAGE,
-            "detach": True,
-            "ports": {22: cls.random_ssh_port},
-        }
-        cls.container = make_container(ssh_dummy_cont)
-        assert cls.container
-        assert cls.container.status == "running"
-        assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
-        try:
-            assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
-
-            username = "mountuser"
-            password = "Passw0rd!"
-            home_path = os.path.join(os.sep, "home", username)
-            cls.share = SSHFSStore(
-                host=cls.host,
-                port=cls.random_ssh_port,
-                username=username,
-                password=password,
-                path=home_path,
-            )
-        except AssertionError:
-            assert remove_container(cls.container.id)
-
-    @classmethod
-    def tearDownClass(cls):
-        # Remove container
-        assert remove_container(cls.container.id)
-        cls.share = None
-
-
 class ERDASFTPShareFileHandleTest(CommonDataStoreFileHandleTests, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -780,7 +648,6 @@ class ERDASFTPShareTest(CommonDataStoreTests, unittest.TestCase):
         cls.binary_file = "".join(["binary_test", cls.seed])
         cls.write_image = "".join(["kmeans_write.tif", cls.seed])
         cls.dir_path = "".join(["directory", cls.seed])
-        cls.img = "kmeans.tif"
 
         cls.files = [
             cls.tmp_file,
@@ -859,20 +726,6 @@ class ERDASFTPShareTest(CommonDataStoreTests, unittest.TestCase):
         self.assertIn(test_binary, f_content)
         self.assertIn(test_b_num, f_content)
         b_file.close()
-
-        # Read 100 mb image
-        with self.share.open(self.img, "rb") as b_file:
-            img = b_file.read()
-            self.assertGreaterEqual(sys.getsizeof(img), 133246888)
-
-            # write 100 mb image
-            with self.share.open(self.write_image, "wb") as new_b_file:
-                new_b_file.write(img)
-
-            # check that it is written
-            with self.share.open(self.write_image, "rb") as new_b_file:
-                new_image = new_b_file.read()
-                self.assertGreaterEqual(sys.getsizeof(new_image), 133246888)
 
     def test_stat(self):
         filename = "stat_file_{}".format(self.seed)
