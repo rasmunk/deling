@@ -175,11 +175,19 @@ class SSHClient:
             self._close_socket()
 
     def exec_command(self, command):
-        if not self.is_session_connected() and not self.connect():
-            return (
-                False,
-                f"Failed to execute command: {command}, not connected to: {self.host}:{self.port}",
-            )
+        if not self.is_session_connected():
+            # Open a session and a channel
+            if not self.connect():
+                return (
+                    False,
+                    f"Failed to execute command: {command}, not connected to: {self.host}:{self.port}",
+                )
+            if not self.open_channel():
+                return (
+                    False,
+                    f"Failed to execute command: {command}, a channel could not be opened",
+                )
+
         channel = self.get_channel()
         if not channel:
             return False, f"Failed to execute command: {command}, no channel available"
