@@ -16,6 +16,7 @@
 
 import socket
 from ssh2.session import Session
+from ssh2.utils import handle_error_codes
 
 
 CHANNEL_TYPE_SESSION = "session"
@@ -179,9 +180,13 @@ class SSHClient:
         if not channel:
             return False, ""
 
-        return_code = channel.execute(command)
+        return_code = handle_error_codes(channel.execute(command))
         if return_code != 0:
-            return False, ""
+            # An unkown error occurred
+            return (
+                False,
+                f"An unknown error code was returned from executing the command: {command}, error code: {return_code}",
+            )
 
         return read_channel_response(channel)
 
