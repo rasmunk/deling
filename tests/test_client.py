@@ -149,7 +149,7 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         channel = self.client.get_channel()
         self.assertIsNotNone(channel)
 
-        success, response = self.client.exec_command(channel, command)
+        success, response = self.client.exec_command(command, channel=channel)
         self.assertTrue(success)
         self.assertIsInstance(response, str)
         self.assertGreater(len(response), 0)

@@ -172,7 +172,14 @@ class SSHClient:
         if self.is_socket_connected():
             self._close_socket()
 
-    def exec_command(self, channel, command):
+    def exec_command(self, command, channel=None):
+        if not channel:
+            if not self.open_channel():
+                return (
+                    False,
+                    f"Failed to open a channel to execute the command: {command}"
+                )
+            channel = self.get_channel()
         return_code = handle_error_codes(channel.execute(command))
         if return_code != 0:
             # An unkown error occurred
@@ -196,7 +203,7 @@ class SSHClient:
                     f"Failed to run command: {command}, no open channel available",
                 )
             channel = _client.get_channel()
-            return _client.exec_command(channel, command)
+            return _client.exec_command(command, channel=channel)
         return False, "Failed to run command"
 
     def run_multiple_commands(self, commands):
@@ -217,7 +224,7 @@ class SSHClient:
                     )
                 else:
                     channel = _client.get_channel()
-                    responses.append(_client.exec_command(channel, command))
+                    responses.append(_client.exec_command(command, channel=channel))
                     _client.close_channel()
         return responses
 
