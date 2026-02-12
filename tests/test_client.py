@@ -58,7 +58,7 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         # authorized key.
         # Expose a random SSH port on the host that can be used for SSH
         # testing againt the container
-        cls.random_ssh_port = random.randint(2200, 2299)
+        cls.random_ssh_port = random.randint(2200, 2500)
         ssh_dummy_cont = {
             "image": IMAGE,
             "detach": True,
@@ -75,6 +75,10 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
             cls.client = SSHClient(cls.host, authenticator, port=cls.random_ssh_port)
         except AssertionError:
             assert remove_container(cls.container.id)
+
+    def tearDown(self):
+        # Ensure that we disconnect after a test
+        self.client.disconnect()
 
     @classmethod
     def tearDownClass(cls):
@@ -96,7 +100,6 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         self.assertTrue(self.client._init_socket())
         self.assertTrue(self.client._connect_socket())
         self.assertTrue(self.client.is_socket_connected())
-
         self.assertTrue(self.client._init_session())
         self.assertTrue(self.client._connect_session())
         self.client._close_session()
@@ -139,14 +142,51 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         self.client.disconnect()
 
     def test_client_exec_command(self):
+        input_data = "Hello World"
+        command = f"echo {input_data}"
         self.assertTrue(self.client.connect())
         self.assertTrue(self.client.open_channel())
-        self.assertIsNotNone(self.client.channel)
-        success, response = self.client.exec_command("echo Hello World")
+        channel = self.client.get_channel()
+        self.assertIsNotNone(channel)
+
+        success, response = self.client.exec_command(channel, command)
         self.assertTrue(success)
         self.assertIsInstance(response, str)
         self.assertGreater(len(response), 0)
-        self.assertEqual(response, "Hello World\n")
+        self.assertEqual(response, f"{input_data}\n")
         self.client.close_channel()
         self.assertIsNone(self.client.channel)
         self.client.disconnect()
+
+    def test_client_run_single_command(self):
+        input_data = "Hdk1902dm10d9m1d"
+        command = f"echo {input_data}"
+        success, response = self.client.run_single_command(command)
+        self.assertTrue(success)
+        self.assertIsInstance(response, str)
+        self.assertGreater(len(response), 0)
+        self.assertEqual(response, f"{input_data}\n")
+
+        self.assertFalse(self.client.is_session_connected())
+        self.assertFalse(self.client.is_socket_connected())
+
+    def test_client_multiple_commands(self):
+        commands = [
+            "echo Hello",
+            "echo World",
+            "echo Test",
+        ]
+        responses = self.client.run_multiple_commands(commands)
+        self.assertEqual(len(responses), len(commands))
+        for rsp in responses:
+            success, response = rsp[0], rsp[1]
+            self.assertTrue(success)
+            self.assertIsInstance(response, str)
+            self.assertGreater(len(response), 0)
+        response_msgs = [rsp[1] for rsp in responses]
+        self.assertIn("Hello\n", response_msgs)
+        self.assertIn("World\n", response_msgs)
+        self.assertIn("Test\n", response_msgs)
+
+        self.assertFalse(self.client.is_session_connected())
+        self.assertFalse(self.client.is_socket_connected())

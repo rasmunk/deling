@@ -113,7 +113,7 @@ class SSHClient:
     def open_channel(self, channel_type=CHANNEL_TYPE_SESSION):
         if channel_type not in CHANNEL_TYPES:
             return False
-        if not self.session:
+        if not self.is_session_connected():
             return False
         try:
             if channel_type == CHANNEL_TYPE_SESSION:
@@ -128,12 +128,12 @@ class SSHClient:
 
     def get_channel(self, channel_type=CHANNEL_TYPE_SESSION):
         if channel_type not in CHANNEL_TYPES:
-            return False
+            return None
         if channel_type == CHANNEL_TYPE_SESSION:
             return self.channel
         if channel_type == CHANNEL_TYPE_SFTP:
             return self.sftp_channel
-        return False
+        return None
 
     def close_channel(self, channel_type=CHANNEL_TYPE_SESSION):
         if channel_type not in CHANNEL_TYPES:
@@ -154,14 +154,12 @@ class SSHClient:
         return self.authenticator.authenticate(self.session)
 
     def connect(self):
-        if not self._connect_socket():
+        if not self.is_socket_connected() and not self._connect_socket():
             return False
-        if not self.is_socket_connected():
+
+        if not self.is_session_connected() and not self._connect_session():
             return False
-        if not self._connect_session():
-            return False
-        if not self.is_session_connected():
-            return False
+
         if not self._authenticate():
             return False
         return True
@@ -174,24 +172,7 @@ class SSHClient:
         if self.is_socket_connected():
             self._close_socket()
 
-    def exec_command(self, command):
-        if not self.is_session_connected():
-            # Open a session and a channel
-            if not self.connect():
-                return (
-                    False,
-                    f"Failed to execute command: {command}, not connected to: {self.host}:{self.port}",
-                )
-            if not self.open_channel():
-                return (
-                    False,
-                    f"Failed to execute command: {command}, a channel could not be opened",
-                )
-
-        channel = self.get_channel()
-        if not channel:
-            return False, f"Failed to execute command: {command}, no channel available"
-
+    def exec_command(self, channel, command):
         return_code = handle_error_codes(channel.execute(command))
         if return_code != 0:
             # An unkown error occurred
@@ -201,6 +182,44 @@ class SSHClient:
             )
 
         return read_channel_response(channel)
+
+    def run_single_command(self, command):
+        with self as _client:
+            if not _client.connect():
+                return (
+                    False,
+                    f"Failed to run command: {command}, not connected to: {self.host}:{self.port}",
+                )
+            if not _client.open_channel():
+                return (
+                    False,
+                    f"Failed to run command: {command}, no open channel available",
+                )
+            channel = _client.get_channel()
+            return _client.exec_command(channel, command)
+        return False, "Failed to run command"
+
+    def run_multiple_commands(self, commands):
+        responses = []
+        with self as _client:
+            if not _client.connect():
+                return (
+                    False,
+                    f"Failed to run command: {command}, not connected to: {self.host}:{self.port}",
+                )
+            for command in commands:
+                if not _client.open_channel():
+                    responses.append(
+                        (
+                            False,
+                            f"Failed to run command: {command}, could not open a channel",
+                        )
+                    )
+                else:
+                    channel = _client.get_channel()
+                    responses.append(_client.exec_command(channel, command))
+                    _client.close_channel()
+        return responses
 
 
 def read_channel_response(channel):
