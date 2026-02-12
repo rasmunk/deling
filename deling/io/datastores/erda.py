@@ -42,19 +42,3 @@ class ERDAShare(ERDASFTPShare):
         super(ERDAShare, self).__init__(
             username=share_link, password=share_link, port=port
         )
-
-
-# class ErdaHome(DataStore):
-#     _target = ERDA.url
-
-#     # TODO -> switch over to checking the OPENID session instead of username/password
-#     def __init__(self, username, password):
-#         """
-#         :param username:
-#         The username to the users ERDA home directory,
-#         as can be found at https://erda.dk/wsgi-bin/settings.py?topic=sftp
-#         :param password:
-#         Same as user but the speficied password instead
-#         """
-#         client = SSHFS(ErdaHome._target, user=username, passwd=password)
-#         super(ErdaHome, self).__init__(client=client)
