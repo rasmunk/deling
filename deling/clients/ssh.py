@@ -23,7 +23,7 @@ CHANNEL_TYPE_SFTP = "sftp"
 CHANNEL_TYPES = [CHANNEL_TYPE_SESSION, CHANNEL_TYPE_SFTP]
 
 
-class SSHClient(object):
+class SSHClient:
     def __init__(self, host, authenticator, port=22, proxy=None):
         self.host = host
         self.authenticator = authenticator
@@ -37,9 +37,16 @@ class SSHClient(object):
         self.session = None
         self.channel = None
         self.sftp_channel = None
+        self._is_session_connected = False
 
     def __del__(self):
-        self.disconnect()
+        self._close_session()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, execution_type, execption_value, traceback):
+        self._close_session()
 
     def is_socket_connected(self):
         if not self.socket:
@@ -53,8 +60,8 @@ class SSHClient(object):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             return True
-        except Exception as e:
-            print("Failed to setup socket: {}".format(e))
+        except Exception:
+            return False
         return False
 
     def _connect_socket(self):
@@ -64,8 +71,7 @@ class SSHClient(object):
             connect_code = self.socket.connect_ex((self.host, self.port))
             if connect_code == 0:
                 return True
-        except Exception as e:
-            print("Failed to connect to {}: {}".format(self.host, e))
+        except Exception:
             return False
         return False
 
@@ -73,6 +79,11 @@ class SSHClient(object):
         if self.socket:
             self.socket.close()
             self.socket = None
+
+    def is_session_connected(self):
+        if not self.session:
+            return False
+        return self._is_session_connected
 
     def _init_session(self):
         if self.session:
@@ -87,15 +98,16 @@ class SSHClient(object):
             return False
         try:
             self.session.handshake(self.socket)
-        except Exception as e:
-            print("Failed to open session: {}".format(e))
-            return False
-        return True
+            self._is_session_connected = True
+        except Exception:
+            self._is_session_connected = False
+        return self.is_session_connected()
 
     def _close_session(self):
         if self.session:
             self.session.disconnect()
             self.session = None
+        self._is_session_connected = False
 
     def open_channel(self, channel_type=CHANNEL_TYPE_SESSION):
         if channel_type not in CHANNEL_TYPES:
@@ -109,8 +121,7 @@ class SSHClient(object):
                 self.sftp_channel = self.session.sftp_init()
             else:
                 return False
-        except Exception as e:
-            print("Failed to open channel: {}".format(e))
+        except Exception:
             return False
         return True
 
@@ -142,12 +153,13 @@ class SSHClient(object):
         return self.authenticator.authenticate(self.session)
 
     def connect(self):
-        print("Connecting to {} on port {}".format(self.host, self.port))
         if not self._connect_socket():
             return False
         if not self.is_socket_connected():
             return False
         if not self._connect_session():
+            return False
+        if not self.is_session_connected():
             return False
         if not self._authenticate():
             return False
@@ -159,3 +171,29 @@ class SSHClient(object):
         self._close_session()
         if self.is_socket_connected():
             self._close_socket()
+
+    def exec_command(self, command):
+        if not self.is_session_connected():
+            return False, ""
+        channel = self.get_channel()
+        if not channel:
+            return False, ""
+
+        return_code = channel.execute(command)
+        if return_code != 0:
+            return False, ""
+
+        return read_channel_response(channel)
+
+
+def read_channel_response(channel):
+    response = ""
+    size, data = channel.read()
+    while size > 0:
+        try:
+            decoded_data = data.decode("utf-8")
+            response += decoded_data
+        except UnicodeDecodeError:
+            return False, ""
+        size, data = channel.read(size)
+    return True, response

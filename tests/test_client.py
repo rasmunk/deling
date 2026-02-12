@@ -137,3 +137,16 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         self.client.close_channel(channel_type=CHANNEL_TYPE_SFTP)
         self.assertIsNone(self.client.sftp_channel)
         self.client.disconnect()
+
+    def test_client_exec_command(self):
+        self.assertTrue(self.client.connect())
+        self.assertTrue(self.client.open_channel())
+        self.assertIsNotNone(self.client.channel)
+        success, response = self.client.exec_command("echo Hello World")
+        self.assertTrue(success)
+        self.assertIsInstance(response, str)
+        self.assertGreater(len(response), 0)
+        self.assertEqual(response, "Hello World\n")
+        self.client.close_channel()
+        self.assertIsNone(self.client.channel)
+        self.client.disconnect()
