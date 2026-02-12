@@ -41,13 +41,13 @@ class SSHClient:
         self._is_session_connected = False
 
     def __del__(self):
-        self._close_session()
+        self.disconnect()
 
     def __enter__(self):
         return self
 
     def __exit__(self, execution_type, execption_value, traceback):
-        self._close_session()
+        self.disconnect()
 
     def is_socket_connected(self):
         if not self.socket:
@@ -169,7 +169,8 @@ class SSHClient:
     def disconnect(self):
         self.close_channel(CHANNEL_TYPE_SESSION)
         self.close_channel(CHANNEL_TYPE_SFTP)
-        self._close_session()
+        if self.is_session_connected():
+            self._close_session()
         if self.is_socket_connected():
             self._close_socket()
 
