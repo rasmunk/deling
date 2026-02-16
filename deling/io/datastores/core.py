@@ -32,15 +32,9 @@ from deling.io.datastores.file import SFTPFileHandle
 
 
 class DataStore:
-    _client = None
 
-    def __init__(self, client):
-        """
-        :param client:
-        This is the sshfs client instance,
-        that is used to access the datastore
-        """
-        self._client = client
+    def __init__(self):
+        pass
 
     @abstractmethod
     def disconnect(self):
@@ -102,8 +96,7 @@ class SFTPStore(DataStore):
         if not channel_opened:
             raise ConnectionError("Could not open an SFTP channel")
 
-        sftp_channel = self.ssh_client.get_channel(CHANNEL_TYPE_SFTP)
-        super(SFTPStore, self).__init__(client=sftp_channel)
+        self.sftp_channel = self.ssh_client.get_channel(CHANNEL_TYPE_SFTP)
 
     def __del__(self):
         self.disconnect()
@@ -112,14 +105,14 @@ class SFTPStore(DataStore):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        self.disconnect()
 
     def is_connected(self):
         return self.ssh_client.is_socket_connected()
 
     def disconnect(self):
-        if self._client:
-            self._client.session.disconnect()
+        if self.sftp_channel:
+            self.sftp_channel.session.disconnect()
         if self.ssh_client:
             self.ssh_client.disconnect()
 
@@ -133,7 +126,7 @@ class SFTPStore(DataStore):
         if flag == "r" or flag == "rb":
             r_flags = LIBSSH2_FXF_READ
             mode = LIBSSH2_SFTP_S_IWUSR
-            fh = self._client.open(path, r_flags, mode)
+            fh = self.sftp_channel.open(path, r_flags, mode)
         else:
             w_flags = None
             if flag == "w" or flag == "wb":
@@ -146,7 +139,7 @@ class SFTPStore(DataStore):
                 | LIBSSH2_SFTP_S_IRGRP
                 | LIBSSH2_SFTP_S_IROTH
             )
-            fh = self._client.open(path, w_flags, mode)
+            fh = self.sftp_channel.open(path, w_flags, mode)
         return SFTPFileHandle(fh, path, flag)
 
     def _opendir(self, path):
@@ -154,10 +147,10 @@ class SFTPStore(DataStore):
         :param path: path to directory on the sftp end
         :return: SFTPHandle,
         """
-        return self._client.opendir(path)
+        return self.sftp_channel.opendir(path)
 
     def close(self):
-        self._client.close()
+        self.sftp_channel.close()
 
     def read(self, path, datatype=str):
         """
@@ -231,7 +224,7 @@ class SFTPStore(DataStore):
         # There is no direct way to check if it exists
         # See if we can stat the designated path instead
         try:
-            self._client.stat(path)
+            self.sftp_channel.stat(path)
             return True
         except SFTPProtocolError:
             return False
@@ -277,9 +270,9 @@ class SFTPStore(DataStore):
             current_path = os.path.join(previous_dir, path_part)
             if not self.exists(current_path):
                 try:
-                    self._client.mkdir(current_path, mode)
+                    self.sftp_channel.mkdir(current_path, mode)
                 except Exception:
-                    error = self._client.last_error()
+                    error = self.sftp_channel.last_error()
                     print(
                         "Failed to create path: {} - error_code: {}".format(
                             current_path, error
@@ -294,10 +287,10 @@ class SFTPStore(DataStore):
         :param path: path to the directory that should be removed
         """
         try:
-            self._client.rmdir(path)
+            self.sftp_channel.rmdir(path)
             return True
         except Exception:
-            error = self._client.last_error()
+            error = self.sftp_channel.last_error()
             print("Failed to remove path: {} - error_code: {}".format(path, error))
             return False
         return False
@@ -327,7 +320,7 @@ class SFTPStore(DataStore):
         :param path: path to the file that should return it's stats
         """
         try:
-            return self._client.stat(path)
+            return self.sftp_channel.stat(path)
         except Exception:
             return False
 
@@ -337,7 +330,7 @@ class SFTPStore(DataStore):
         :param attributes: SFTPAttributes that should be applied to the path file
         """
         try:
-            self._client.setstat(path, attributes)
+            self.sftp_channel.setstat(path, attributes)
             return True
         except Exception:
             return False
@@ -347,7 +340,7 @@ class SFTPStore(DataStore):
         :param path: path to the file that should be removed
         """
         try:
-            self._client.unlink(path)
+            self.sftp_channel.unlink(path)
             return True
         except Exception:
             return False
@@ -357,7 +350,7 @@ class SFTPStore(DataStore):
         :param path: The path that should be resolved
         """
         try:
-            return self._client.realpath(path)
+            return self.sftp_channel.realpath(path)
         except Exception:
             return False
 
@@ -367,7 +360,7 @@ class SFTPStore(DataStore):
         :param new_path: The new path
         """
         try:
-            self._client.rename(old_path, new_path)
+            self.sftp_channel.rename(old_path, new_path)
             return True
         except Exception:
             return False

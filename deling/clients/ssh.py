@@ -177,7 +177,7 @@ class SSHClient:
             if not self.open_channel():
                 return (
                     False,
-                    f"Failed to open a channel to execute the command: {command}"
+                    f"Failed to open a channel to execute the command: {command}",
                 )
             channel = self.get_channel()
         return_code = handle_error_codes(channel.execute(command))
@@ -212,7 +212,7 @@ class SSHClient:
             if not _client.connect():
                 return (
                     False,
-                    f"Failed to run command: {command}, not connected to: {self.host}:{self.port}",
+                    f"Failed to run commands: {commands}, not connected to: {self.host}:{self.port}",
                 )
             for command in commands:
                 if not _client.open_channel():
