@@ -48,10 +48,11 @@ from deling.utils.io import (
     touch,
     get_path_permissions,
     makedirs,
+    join,
 )
 from deling.utils.run import run
 
-default_ssh_path = os.path.join(os.path.expanduser("~"), ".ssh")
+default_ssh_path = join(os.path.expanduser("~"), ".ssh")
 
 
 class SSHKnownHost:
@@ -155,9 +156,7 @@ class SSHAuthenticator:
         if not ssh_known_host:
             raise ValueError("Failed to get known host")
 
-        known_host_file_path = os.path.join(
-            os.path.expanduser("~"), ".ssh", "known_hosts"
-        )
+        known_host_file_path = join(os.path.expanduser("~"), ".ssh", "known_hosts")
         # Ensure that the directory exists
         known_host_dir = os.path.dirname(known_host_file_path)
         if not exists(known_host_dir):
@@ -201,30 +200,30 @@ class SSHAuthenticator:
 
     def authenticate(self, session):
         # Ensure that libssh2 receives the correct types
-        if not self._credentials.password:
+        if not self.credentials.password:
             passphrase = ""
         else:
-            if not isinstance(self._credentials.password, str):
-                passphrase = str(self._credentials.password)
+            if not isinstance(self.credentials.password, str):
+                passphrase = str(self.credentials.password)
             else:
-                passphrase = self._credentials.password
+                passphrase = self.credentials.password
         # Use private key authentication if a private key is provided
-        if self._credentials.private_key:
-            if self._credentials.public_key:
-                if isinstance(self._credentials.public_key, str):
+        if self.credentials.private_key:
+            if self.credentials.public_key:
+                if isinstance(self.credentials.public_key, str):
                     publickeyfiledata = bytes(
-                        self._credentials.public_key, encoding="utf-8"
+                        self.credentials.public_key, encoding="utf-8"
                     )
-                elif isinstance(self._credentials.public_key, bytes):
-                    publickeyfiledata = self._credentials.public_key
+                elif isinstance(self.credentials.public_key, bytes):
+                    publickeyfiledata = self.credentials.public_key
                 else:
                     raise TypeError("public_key must be a string or bytes")
             else:
                 publickeyfiledata = None
             try:
                 session.userauth_publickey_frommemory(
-                    self._credentials.username,
-                    bytes(self._credentials.private_key, encoding="utf-8"),
+                    self.credentials.username,
+                    bytes(self.credentials.private_key, encoding="utf-8"),
                     passphrase=passphrase,
                     publickeyfiledata=publickeyfiledata,
                 )
@@ -233,20 +232,27 @@ class SSHAuthenticator:
                     "Failed to authenticate with private key in-memory: {}".format(err)
                 )
                 return False
-        elif self._credentials.private_key_file:
+        elif self.credentials.private_key_file:
+            if not self.credentials.exists():
+                raise RuntimeError(
+                    f"Failed to find the credentials: {self.credentials}, to be used for ssh key file authentication"
+                )
+
             try:
                 session.userauth_publickey_fromfile(
-                    self._credentials.username,
-                    self._credentials.private_key_file,
+                    self.credentials.username,
+                    join(self.credentials.directory, self.credentials.private_key_file),
                     passphrase=passphrase,
-                    publickey=self._credentials.public_key_file,
+                    publickey=join(
+                        self.credentials.directory, self.credentials.public_key_file
+                    ),
                 )
             except Exception as err:
                 print("Failed to authenticate with private key file: {}".format(err))
                 return False
-        elif self._credentials.password and passphrase:
+        elif self.credentials.password and passphrase:
             try:
-                session.userauth_password(self._credentials.username, passphrase)
+                session.userauth_password(self.credentials.username, passphrase)
             except Exception as err:
                 print("Failed to authenticate with password: {}".format(err))
                 return False
@@ -266,7 +272,7 @@ class SSHAuthenticator:
 
     def add_to_authorized(self, path=None):
         if not path:
-            path = os.path.join(os.path.expanduser("~"), ".ssh", "authorized_keys")
+            path = join(os.path.expanduser("~"), ".ssh", "authorized_keys")
         authorized_str = "{public_key}\n".format(public_key=self.credentials.public_key)
         lock_path = f"{path}_lock"
         try:
@@ -281,13 +287,13 @@ class SSHAuthenticator:
 
     def get_authorized(self, path=None):
         if not path:
-            path = os.path.join(os.path.expanduser("~", ".ssh", "authorized_keys"))
+            path = join(os.path.expanduser("~", ".ssh", "authorized_keys"))
         content = [key.replace("\n", "") for key in load(path, readlines=True)]
         return content
 
     def remove_from_authorized(self, path=None):
         if not path:
-            path = os.path.join(os.path.expanduser("~"), ".ssh", "authorized_keys")
+            path = join(os.path.expanduser("~"), ".ssh", "authorized_keys")
         lock_path = f"{path}_lock"
         try:
             authorized_lock = acquire_lock(lock_path)
@@ -316,7 +322,7 @@ class SSHAuthenticator:
         return load(path, readlines=True)
 
     def remove_from_known_hosts(self, endpoint):
-        path = os.path.join(os.path.expanduser("~"), ".ssh", "known_hosts")
+        path = join(os.path.expanduser("~"), ".ssh", "known_hosts")
         lock_path = "{}_lock".format(path)
         try:
             known_hosts_lock = acquire_lock(lock_path)
@@ -334,10 +340,6 @@ class SSHAuthenticator:
     def remove_credentials(self):
         return self.credentials.remove()
 
-    @staticmethod
-    def existing_credentials(**kwargs):
-        return SSHCredentials.exists(**kwargs)
-
 
 class SSHCredentials:
     def __init__(
@@ -350,6 +352,7 @@ class SSHCredentials:
         public_key_file=None,
         certificate=None,
         certificate_file=None,
+        directory=default_ssh_path,
         store_credentials=False,
     ):
         self._username = username
@@ -360,6 +363,7 @@ class SSHCredentials:
         self._public_key_file = public_key_file
         self._certificate = certificate
         self._certificate_file = certificate_file
+        self._directory = directory
         if store_credentials:
             self.store()
 
@@ -427,77 +431,107 @@ class SSHCredentials:
     def certificate_file(self, certificate_file):
         self._certificate_file = certificate_file
 
+    @property
+    def directory(self):
+        return self._directory
+
     def store(self):
+        if self.directory:
+            base_path = self.directory
+        else:
+            base_path = default_ssh_path
+
         if self.private_key_file and self.private_key:
-            if not write(
-                self.private_key_file, self.private_key, mkdirs=True
-            ) or not chmod(self.private_key_file, 0o600):
+            destination = join(base_path, self.private_key_file)
+            if not write(destination, self.private_key, mkdirs=True) or not chmod(
+                destination, 0o600
+            ):
                 return False
 
         if self.public_key_file and self.public_key:
-            if not write(
-                self.public_key_file, self.public_key, mkdirs=True
-            ) or not chmod(self.public_key_file, 0o644):
+            destination = join(base_path, self.public_key_file)
+            if not write(destination, self.public_key, mkdirs=True) or not chmod(
+                destination, 0o644
+            ):
                 return False
 
         if self.certificate_file and self.certificate:
-            if not write(
-                self.certificate_file, self.certificate, mkdirs=True
-            ) or not chmod(self.certificate_file, 0o644):
+            destination = join(base_path, self.certificate_file)
+            if not write(destination, self.certificate, mkdirs=True) or not chmod(
+                destination, 0o644
+            ):
                 return False
         return True
 
     def load(self):
+        if self.directory:
+            base_path = self.directory
+        else:
+            base_path = default_ssh_path
+
         if self.private_key_file:
-            self.private_key = load(self.private_key_file)
+            self.private_key = load(join(base_path, self.private_key_file))
         if self.public_key_file:
-            self.public_key = load(self.public_key_file)
+            self.public_key = load(join(base_path, self.public_key_file))
         if self.certificate_file:
-            self.certificate_file = load(self.certificate_file)
+            self.certificate_file = load(join(base_path, self.certificate_file))
 
     def remove(self):
-        if self.private_key_file and os.path.exists(self.private_key_file):
-            if not remove(self.private_key_file):
+        if self.directory:
+            base_path = self.directory
+        else:
+            base_path = default_ssh_path
+
+        if self.private_key_file:
+            path = join(base_path, self.private_key_file)
+            if exists(path) and not remove(path):
                 return False
-        if self.public_key_file and os.path.exists(self.public_key_file):
-            if not remove(self.public_key_file):
+        if self.public_key_file:
+            path = join(base_path, self.public_key_file)
+            if exists(path) and not remove(path):
                 return False
-        if self.certificate_file and os.path.exists(self.certificate_file):
-            if not remove(self.certificate_file):
+        if self.certificate_file:
+            path = join(base_path, self.certificate_file)
+            if exists(path) and not remove(path):
                 return False
         return True
 
-    @staticmethod
     def exists(
-        ssh_dir_path=default_ssh_path,
-        key_name="id_rsa",
+        self,
+        check_public_key_file=False,
         check_certificate=False,
-        **kwargs,
     ):
         return ssh_credentials_exists(
-            ssh_dir_path=ssh_dir_path,
-            key_name=key_name,
+            ssh_credentials=self,
+            check_public_key_file=check_public_key_file,
             check_certificate=check_certificate,
         )
 
 
 def ssh_credentials_exists(
-    ssh_dir_path=default_ssh_path, key_name="id_rsa", check_certificate=False, **kwargs
+    ssh_credentials=None,
+    check_public_key_file=False,
+    check_certificate=False,
 ):
-    if not os.path.exists(ssh_dir_path):
+    if not exists(ssh_credentials.directory):
         return False
 
-    private_key_file = os.path.join(ssh_dir_path, key_name)
-    if not os.path.exists(private_key_file):
+    private_key_file = join(ssh_credentials.directory, ssh_credentials.private_key_file)
+    if not exists(private_key_file):
         return False
 
-    public_key_file = os.path.join(ssh_dir_path, "{}.pub".format(key_name))
-    if not os.path.exists(public_key_file):
-        return False
+    if check_public_key_file:
+        public_key_file = join(
+            ssh_credentials.directory, ssh_credentials.public_key_file
+        )
+        if not exists(public_key_file):
+            return False
 
     if check_certificate:
-        certificate_file = os.path.join(ssh_dir_path, "{}-cert.pub".format(key_name))
-        if not os.path.exists(certificate_file):
+        certificate_file = join(
+            ssh_credentials.directory, ssh_credentials.certificate_file
+        )
+        if not exists(certificate_file):
             return False
     return True
 
@@ -510,7 +544,7 @@ def gen_ssh_key_pair(
     format_output_str=False,
     password="",
 ):
-    generate_key_path = os.path.join(ssh_dir_path, key_name)
+    generate_key_path = join(ssh_dir_path, key_name)
     generate_command = [
         "ssh-keygen",
         "-t",
@@ -530,35 +564,3 @@ def gen_ssh_key_pair(
     if result["returncode"] == 0:
         return True
     return False
-
-
-def load_rsa_key_pair(ssh_dir_path=default_ssh_path, key_name="id_rsa"):
-    private_key_file = os.path.join(ssh_dir_path, key_name)
-    if not os.path.exists(private_key_file):
-        return None
-    private_key = load(private_key_file)
-
-    public_key_file = os.path.join(ssh_dir_path, "{}.pub".format(key_name))
-    if not os.path.exists(public_key_file):
-        return None
-    public_key = load(public_key_file)
-    credential_kwargs = dict(
-        private_key=private_key,
-        private_key_file=private_key_file,
-        public_key=public_key,
-        public_key_file=public_key_file,
-    )
-    return SSHCredentials(**credential_kwargs)
-
-
-def remove_ssh_credentials(ssh_dir_path=default_ssh_path, key_name="id_rsa"):
-    private_key_file = os.path.join(ssh_dir_path, key_name)
-    if exists(private_key_file):
-        if not remove(private_key_file):
-            return False
-
-    public_key_file = os.path.join(ssh_dir_path, "{}.pub".format(key_name))
-    if exists(public_key_file):
-        if not remove(public_key_file):
-            return False
-    return True

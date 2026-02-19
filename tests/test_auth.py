@@ -17,13 +17,11 @@
 import unittest
 import os
 import random
-from deling.authenticators.ssh import SSHAuthenticator
+from deling.authenticators.ssh import SSHAuthenticator, SSHCredentials
 from deling.io.datastores.core import SFTPStore
 from deling.utils.io import exists, makedirs, removedirs, write, chmod
 from deling.authenticators.ssh import (
     gen_ssh_key_pair,
-    load_rsa_key_pair,
-    ssh_credentials_exists,
 )
 from helpers import (
     make_container,
@@ -60,6 +58,7 @@ class AuthenticationTestCases:
                 username=self.ssh_credentials.username,
                 private_key_file=self.ssh_credentials.private_key_file,
                 public_key_file=self.ssh_credentials.public_key_file,
+                directory=self.ssh_credentials.directory,
             ),
         )
         self.assertTrue(datastore.is_connected())
@@ -74,6 +73,7 @@ class AuthenticationTestCases:
                 username=self.ssh_credentials.username,
                 private_key=self.ssh_credentials.private_key,
                 public_key=self.ssh_credentials.public_key,
+                directory=self.ssh_credentials.directory,
             ),
         )
         self.assertTrue(datastore.is_connected())
@@ -105,18 +105,24 @@ class SFTPStoreTestAuthentication(AuthenticationTestCases, unittest.TestCase):
 
         # Create an ssh key pair for testing
         key_type = "ed25519"
-        key_name = "id_{}_{}".format(key_type, cls.seed)
-        assert gen_ssh_key_pair(
-            ssh_dir_path=cls.test_ssh_dir, key_name=key_name, key_type=key_type
-        )
-        assert ssh_credentials_exists(ssh_dir_path=cls.test_ssh_dir, key_name=key_name)
-
-        cls.ssh_credentials = load_rsa_key_pair(
-            ssh_dir_path=cls.test_ssh_dir, key_name=key_name
+        key_name = f"id_{key_type}_{cls.seed}"
+        cls.ssh_credentials = SSHCredentials(
+            username="mountuser",
+            password="Passw0rd!",
+            private_key_file=key_name,
+            public_key_file=f"{key_name}.pub",
+            directory=cls.test_ssh_dir,
         )
         assert cls.ssh_credentials is not None
-        cls.ssh_credentials.username = "mountuser"
-        cls.ssh_credentials.password = "Passw0rd!"
+        assert gen_ssh_key_pair(
+            ssh_dir_path=cls.ssh_credentials.directory,
+            key_name=cls.ssh_credentials.private_key_file,
+            key_type=key_type,
+        )
+        assert cls.ssh_credentials.exists()
+        cls.ssh_credentials.load()
+        assert cls.ssh_credentials.private_key is not None
+        assert cls.ssh_credentials.public_key is not None
 
         # Create an authorized key file that can be mounted inside the
         # dummy mount container.
@@ -124,13 +130,16 @@ class SFTPStoreTestAuthentication(AuthenticationTestCases, unittest.TestCase):
         assert write(cls.authorized_key_file, cls.ssh_credentials.public_key)
         assert chmod(cls.authorized_key_file, 0o600)
 
+        public_key_file_path = os.path.join(
+            cls.ssh_credentials.directory, cls.ssh_credentials.public_key_file
+        )
+        assert exists(public_key_file_path)
+
         ssh_dummy_cont = {
             "image": IMAGE,
             "detach": True,
             "ports": {22: cls.random_ssh_port},
-            "volumes": [
-                f"{cls.ssh_credentials.public_key_file}:/authorized-keys/{key_name}"
-            ],
+            "volumes": [f"{public_key_file_path}:/authorized-keys/{key_name}"],
         }
         cls.container = make_container(ssh_dummy_cont)
         assert cls.container

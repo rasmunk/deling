@@ -87,6 +87,7 @@ class SFTPStore(DataStore):
         ):
             raise ValueError("Authenticator could not be prepared")
 
+        self.sftp_channel = None
         self.ssh_client = SSHClient(host, authenticator, port=port)
         connected = self.ssh_client.connect()
         if not connected:
