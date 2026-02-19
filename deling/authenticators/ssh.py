@@ -233,9 +233,9 @@ class SSHAuthenticator:
                 )
                 return False
         elif self.credentials.private_key_file:
-            if not self.credentials.exists():
+            if not self.credentials.exists(check_public_key_file=True):
                 raise RuntimeError(
-                    f"Failed to find the credentials: {self.credentials}, to be used for ssh key file authentication"
+                    f"Failed to find the credentials in: {self.credentials}, required for ssh key file authentication"
                 )
 
             try:
@@ -501,39 +501,20 @@ class SSHCredentials:
         check_public_key_file=False,
         check_certificate=False,
     ):
-        return ssh_credentials_exists(
-            ssh_credentials=self,
-            check_public_key_file=check_public_key_file,
-            check_certificate=check_certificate,
-        )
-
-
-def ssh_credentials_exists(
-    ssh_credentials=None,
-    check_public_key_file=False,
-    check_certificate=False,
-):
-    if not exists(ssh_credentials.directory):
-        return False
-
-    private_key_file = join(ssh_credentials.directory, ssh_credentials.private_key_file)
-    if not exists(private_key_file):
-        return False
-
-    if check_public_key_file:
-        public_key_file = join(
-            ssh_credentials.directory, ssh_credentials.public_key_file
-        )
-        if not exists(public_key_file):
+        private_key_file = join(self.directory, self.private_key_file)
+        if not exists(private_key_file):
             return False
 
-    if check_certificate:
-        certificate_file = join(
-            ssh_credentials.directory, ssh_credentials.certificate_file
-        )
-        if not exists(certificate_file):
-            return False
-    return True
+        if check_public_key_file:
+            public_key_file = join(self.directory, self.public_key_file)
+            if not exists(public_key_file):
+                return False
+
+        if check_certificate:
+            certificate_file = join(self.directory, self.certificate_file)
+            if not exists(certificate_file):
+                return False
+        return True
 
 
 def gen_ssh_key_pair(
