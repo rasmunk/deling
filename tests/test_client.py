@@ -18,7 +18,7 @@ import unittest
 import os
 import random
 from ssh2.sftp import SFTP
-from deling.clients.ssh import SSHClient, CHANNEL_TYPE_SFTP
+from deling.clients.ssh import SSHClient, CHANNEL_TYPE_SFTP, SSHClientResultCode
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.utils.io import exists, makedirs, removedirs
 from helpers import (
@@ -150,7 +150,8 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         self.assertIsNotNone(channel)
 
         success, response = self.client.exec_command(command, channel=channel)
-        self.assertTrue(success)
+        self.assertIsInstance(success, SSHClientResultCode)
+        self.assertEqual(success, SSHClientResultCode.SUCCESS)
         self.assertIsInstance(response, str)
         self.assertGreater(len(response), 0)
         self.assertEqual(response, f"{input_data}\n")
@@ -162,10 +163,24 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         input_data = "Hdk1902dm10d9m1d"
         command = f"echo {input_data}"
         success, response = self.client.run_single_command(command)
-        self.assertTrue(success)
+        self.assertIsInstance(success, SSHClientResultCode)
+        self.assertEqual(success, SSHClientResultCode.SUCCESS)
         self.assertIsInstance(response, str)
         self.assertGreater(len(response), 0)
         self.assertEqual(response, f"{input_data}\n")
+
+        self.assertFalse(self.client.is_session_connected())
+        self.assertFalse(self.client.is_socket_connected())
+
+    def test_client_run_single_command_return_stderr(self):
+        input_data = "Hello World"
+        incorrect_command = f"42 {input_data}"
+        success, response = self.client.run_single_command(incorrect_command)
+        self.assertIsInstance(success, SSHClientResultCode)
+        self.assertEqual(success, SSHClientResultCode.STDERR_RESPONSE)
+        self.assertIsInstance(response, str)
+        self.assertGreater(len(response), 0)
+        self.assertIn("command not found", response)
 
         self.assertFalse(self.client.is_session_connected())
         self.assertFalse(self.client.is_socket_connected())
@@ -180,7 +195,8 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         self.assertEqual(len(responses), len(commands))
         for rsp in responses:
             success, response = rsp[0], rsp[1]
-            self.assertTrue(success)
+            self.assertIsInstance(success, SSHClientResultCode)
+            self.assertEqual(success, SSHClientResultCode.SUCCESS)
             self.assertIsInstance(response, str)
             self.assertGreater(len(response), 0)
         response_msgs = [rsp[1] for rsp in responses]
@@ -190,3 +206,22 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
 
         self.assertFalse(self.client.is_session_connected())
         self.assertFalse(self.client.is_socket_connected())
+
+    def test_client_multiple_commands_return_stderr(self):
+        commands = [
+            "cat --asdasdad",
+            "41 World",
+            "1231 Test",
+        ]
+        responses = self.client.run_multiple_commands(commands)
+        self.assertEqual(len(responses), len(commands))
+        for rsp in responses:
+            success, response = rsp[0], rsp[1]
+            self.assertIsInstance(success, SSHClientResultCode)
+            self.assertEqual(success, SSHClientResultCode.STDERR_RESPONSE)
+            self.assertIsInstance(response, str)
+            self.assertGreater(len(response), 0)
+        response_msgs = [rsp[1] for rsp in responses]
+        self.assertIn("unrecognized option", response_msgs[0])
+        self.assertIn("command not found", response_msgs[1])
+        self.assertIn("command not found", response_msgs[2])

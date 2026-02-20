@@ -17,11 +17,32 @@
 import socket
 from ssh2.session import Session
 from ssh2.utils import handle_error_codes
+from enum import Enum
 
 
 CHANNEL_TYPE_SESSION = "session"
 CHANNEL_TYPE_SFTP = "sftp"
 CHANNEL_TYPES = [CHANNEL_TYPE_SESSION, CHANNEL_TYPE_SFTP]
+
+
+class SSHClientResultCode(Enum):
+
+    SUCCESS = 0
+    STDERR_RESPONSE = 1
+    CONNECTION_ERROR = 10
+    CHANNEL_OPEN_ERROR = 11
+    CHANNEL_EXECUTE_ERROR = 12
+    CHANNEL_READ_ERROR = 13
+    UNKNOWN_ERROR = 99
+
+    def is_success(self):
+        return self.value == SSHClientResultCode.SUCCESS
+
+    def is_stderr_response(self):
+        return self.value == SSHClientResultCode.STDERR_RESPONSE
+
+    def is_error(self):
+        return not self.is_success()
 
 
 class SSHClient:
@@ -176,49 +197,71 @@ class SSHClient:
         if not channel:
             if not self.open_channel():
                 return (
-                    False,
+                    SSHClientResultCode.CHANNEL_OPEN_ERROR,
                     f"Failed to open a channel to execute the command: {command}",
                 )
             channel = self.get_channel()
+
         return_code = handle_error_codes(channel.execute(command))
         if return_code != 0:
             # An unkown error occurred
             return (
-                False,
+                SSHClientResultCode.CHANNEL_EXECUTE_ERROR,
                 f"An unknown error code was returned from executing the command: {command}, error code: {return_code}",
             )
 
-        return read_channel_response(channel)
+        stderr_success, stderr_response = read_channel_response_stderr(channel)
+        if not stderr_success:
+            return (
+                SSHClientResultCode.CHANNEL_READ_ERROR,
+                f"Failed to read the stderr of the command: {command}",
+            )
+
+        if stderr_response:
+            return SSHClientResultCode.STDERR_RESPONSE, stderr_response
+
+        stdout_success, stdout_response = read_channel_response_stdout(channel)
+        if not stdout_success:
+            return (
+                SSHClientResultCode.CHANNEL_READ_ERROR,
+                f"Failed to read the stdout of the command: {command}",
+            )
+        return SSHClientResultCode.SUCCESS, stdout_response
 
     def run_single_command(self, command):
         with self as _client:
             if not _client.connect():
                 return (
-                    False,
+                    SSHClientResultCode.CONNECTION_ERROR,
                     f"Failed to run command: {command}, not connected to: {self.host}:{self.port}",
                 )
+
             if not _client.open_channel():
                 return (
-                    False,
+                    SSHClientResultCode.CHANNEL_OPEN_ERROR,
                     f"Failed to run command: {command}, no open channel available",
                 )
+
             channel = _client.get_channel()
             return _client.exec_command(command, channel=channel)
-        return False, "Failed to run command"
+        return (
+            SSHClientResultCode.UNKNOWN_ERROR,
+            f"Failed to run command: {command}, unknown error happend during the connection phase",
+        )
 
     def run_multiple_commands(self, commands):
         responses = []
         with self as _client:
             if not _client.connect():
                 return (
-                    False,
+                    SSHClientResultCode.CONNECTION_ERROR,
                     f"Failed to run commands: {commands}, not connected to: {self.host}:{self.port}",
                 )
             for command in commands:
                 if not _client.open_channel():
                     responses.append(
                         (
-                            False,
+                            SSHClientResultCode.CHANNEL_OPEN_ERROR,
                             f"Failed to run command: {command}, could not open a channel",
                         )
                     )
@@ -229,14 +272,34 @@ class SSHClient:
         return responses
 
 
-def read_channel_response(channel):
+def read_channel_response_stdout(channel):
     response = ""
     size, data = channel.read()
     while size > 0:
-        try:
-            decoded_data = data.decode("utf-8")
-            response += decoded_data
-        except UnicodeDecodeError:
+        response_str = decode_bytes_to_string(data)
+        if not response_str:
             return False, ""
+        response += response_str
         size, data = channel.read(size)
     return True, response
+
+
+def read_channel_response_stderr(channel):
+    response = ""
+    size, data = channel.read_stderr()
+    while size > 0:
+        response_str = decode_bytes_to_string(data)
+        if not response_str:
+            return False, ""
+        response += response_str
+        size, data = channel.read_stderr(size)
+    return True, response
+
+
+def decode_bytes_to_string(bytes_data):
+    try:
+        decoded_data = bytes_data.decode("utf-8")
+        return decoded_data
+    except UnicodeDecodeError:
+        return False
+    return False
