@@ -49,6 +49,11 @@ install-dist-dep: venv
 distclean:
 	rm -fr dist build $(PACKAGE_NAME).egg-info $(PACKAGE_NAME_FORMATTED).egg-info
 
+
+.PHONY: fmt
+fmt:
+	$(VENV)/black --line-length=88 --target-version=py312 .
+
 .PHONY: maintainer-clean
 maintainer-clean: distclean clean venv-clean
 
