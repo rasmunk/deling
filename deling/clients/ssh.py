@@ -200,7 +200,7 @@ class SSHClient:
                     SSHClientResultCode.CHANNEL_OPEN_ERROR,
                     {
                         "output": f"Failed to open a channel to execute the command: {command}",
-                    }
+                    },
                 )
             channel = self.get_channel()
 
@@ -208,23 +208,19 @@ class SSHClient:
         if channel_return_code != 0:
             # An unkown error occurred
             return_dict["channel_error_code"] = channel_return_code
-            return_dict["output"] = f"An unknown error code was returned from executing the command: {command}"
-            return (
-                SSHClientResultCode.CHANNEL_EXECUTE_ERROR,
-                return_dict
+            return_dict["output"] = (
+                f"An unknown error code was returned from executing the command: {command}"
             )
+            return (SSHClientResultCode.CHANNEL_EXECUTE_ERROR, return_dict)
 
         stderr_success, stderr_response = read_channel_response_stderr(channel)
         exit_code = read_channel_exit_status(channel)
-        return_dict = {
-            "exit_code": exit_code
-        }
+        return_dict = {"exit_code": exit_code}
         if not stderr_success:
-            return_dict["output"] = f"Failed to read the channel stderr of the command: {command}",
-            return (
-                SSHClientResultCode.CHANNEL_READ_ERROR,
-                return_dict
+            return_dict["output"] = (
+                f"Failed to read the channel stderr of the command: {command}",
             )
+            return (SSHClientResultCode.CHANNEL_READ_ERROR, return_dict)
 
         if stderr_response:
             return_dict["output"] = stderr_response
@@ -232,10 +228,10 @@ class SSHClient:
 
         stdout_success, stdout_response = read_channel_response_stdout(channel)
         if not stdout_success:
-            return_dict["output"] = f"Failed to read the channel stdout of the command: {command}",
-            return (
-                SSHClientResultCode.CHANNEL_READ_ERROR, return_dict
+            return_dict["output"] = (
+                f"Failed to read the channel stdout of the command: {command}",
             )
+            return (SSHClientResultCode.CHANNEL_READ_ERROR, return_dict)
 
         return_dict["output"] = stdout_response
         return SSHClientResultCode.SUCCESS, return_dict
@@ -247,7 +243,7 @@ class SSHClient:
                     SSHClientResultCode.CONNECTION_ERROR,
                     {
                         "output": f"Failed to run command: {command}, not connected to: {self.host}:{self.port}",
-                    }
+                    },
                 )
 
             if not _client.open_channel():
@@ -255,7 +251,7 @@ class SSHClient:
                     SSHClientResultCode.CHANNEL_OPEN_ERROR,
                     {
                         "output": f"Failed to run command: {command}, no open channel available",
-                    }
+                    },
                 )
 
             channel = _client.get_channel()
@@ -264,7 +260,7 @@ class SSHClient:
             SSHClientResultCode.UNKNOWN_ERROR,
             {
                 "output": f"Failed to run command: {command}, unknown error happend during the connection phase",
-            }
+            },
         )
 
     def run_multiple_commands(self, commands):
@@ -275,7 +271,7 @@ class SSHClient:
                     SSHClientResultCode.CONNECTION_ERROR,
                     {
                         "output": f"Failed to run commands: {commands}, not connected to: {self.host}:{self.port}"
-                    }
+                    },
                 )
             for command in commands:
                 if not _client.open_channel():
@@ -284,7 +280,7 @@ class SSHClient:
                             SSHClientResultCode.CHANNEL_OPEN_ERROR,
                             {
                                 "output": f"Failed to run command: {command}, could not open a channel"
-                            }
+                            },
                         )
                     )
                 else:

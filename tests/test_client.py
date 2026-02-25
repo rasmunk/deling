@@ -18,7 +18,12 @@ import unittest
 import os
 import random
 from ssh2.sftp import SFTP
-from deling.clients.ssh import SSHClient, CHANNEL_TYPE_SFTP, SSHClientResultCode, read_channel_exit_status
+from deling.clients.ssh import (
+    SSHClient,
+    CHANNEL_TYPE_SFTP,
+    SSHClientResultCode,
+    read_channel_exit_status,
+)
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.utils.io import exists, makedirs, removedirs
 from helpers import (
