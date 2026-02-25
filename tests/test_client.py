@@ -18,7 +18,7 @@ import unittest
 import os
 import random
 from ssh2.sftp import SFTP
-from deling.clients.ssh import SSHClient, CHANNEL_TYPE_SFTP, SSHClientResultCode
+from deling.clients.ssh import SSHClient, CHANNEL_TYPE_SFTP, SSHClientResultCode, read_channel_exit_status
 from deling.authenticators.ssh import SSHAuthenticator
 from deling.utils.io import exists, makedirs, removedirs
 from helpers import (
@@ -152,9 +152,15 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         success, response = self.client.exec_command(command, channel=channel)
         self.assertIsInstance(success, SSHClientResultCode)
         self.assertEqual(success, SSHClientResultCode.SUCCESS)
-        self.assertIsInstance(response, str)
+
+        self.assertIsInstance(response, dict)
         self.assertGreater(len(response), 0)
-        self.assertEqual(response, f"{input_data}\n")
+        self.assertIn("exit_code", response)
+        self.assertIn("output", response)
+        self.assertIsInstance(response["exit_code"], int)
+        self.assertIsInstance(response["output"], str)
+        self.assertDictEqual(response, {"exit_code": 0, "output": f"{input_data}\n"})
+
         self.client.close_channel()
         self.assertIsNone(self.client.channel)
         self.client.disconnect()
@@ -165,9 +171,14 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         success, response = self.client.run_single_command(command)
         self.assertIsInstance(success, SSHClientResultCode)
         self.assertEqual(success, SSHClientResultCode.SUCCESS)
-        self.assertIsInstance(response, str)
+
+        self.assertIsInstance(response, dict)
         self.assertGreater(len(response), 0)
-        self.assertEqual(response, f"{input_data}\n")
+        self.assertIn("exit_code", response)
+        self.assertIn("output", response)
+        self.assertIsInstance(response["exit_code"], int)
+        self.assertIsInstance(response["output"], str)
+        self.assertDictEqual(response, {"exit_code": 0, "output": f"{input_data}\n"})
 
         self.assertFalse(self.client.is_session_connected())
         self.assertFalse(self.client.is_socket_connected())
@@ -178,9 +189,16 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
         success, response = self.client.run_single_command(incorrect_command)
         self.assertIsInstance(success, SSHClientResultCode)
         self.assertEqual(success, SSHClientResultCode.STDERR_RESPONSE)
-        self.assertIsInstance(response, str)
+
+        self.assertIsInstance(response, dict)
         self.assertGreater(len(response), 0)
-        self.assertIn("command not found", response)
+        self.assertIsInstance(response["exit_code"], int)
+        self.assertIsInstance(response["output"], str)
+
+        # 127 == invalid command
+        self.assertEqual(response["exit_code"], 127)
+        self.assertGreater(len(response["output"]), 0)
+        self.assertIn("command not found", response["output"])
 
         self.assertFalse(self.client.is_session_connected())
         self.assertFalse(self.client.is_socket_connected())
@@ -197,12 +215,16 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
             success, response = rsp[0], rsp[1]
             self.assertIsInstance(success, SSHClientResultCode)
             self.assertEqual(success, SSHClientResultCode.SUCCESS)
-            self.assertIsInstance(response, str)
+            self.assertIsInstance(response, dict)
             self.assertGreater(len(response), 0)
-        response_msgs = [rsp[1] for rsp in responses]
+            self.assertIsInstance(response["exit_code"], int)
+            self.assertIsInstance(response["output"], str)
+        response_msgs = [rsp[1]["output"] for rsp in responses]
         self.assertIn("Hello\n", response_msgs)
         self.assertIn("World\n", response_msgs)
         self.assertIn("Test\n", response_msgs)
+        response_exit_codes = [rsp[1]["exit_code"] for rsp in responses]
+        self.assertListEqual(response_exit_codes, [0, 0, 0])
 
         self.assertFalse(self.client.is_session_connected())
         self.assertFalse(self.client.is_socket_connected())
@@ -219,9 +241,15 @@ class SSHClientTestAuthentication(CommonClientTestCases, unittest.TestCase):
             success, response = rsp[0], rsp[1]
             self.assertIsInstance(success, SSHClientResultCode)
             self.assertEqual(success, SSHClientResultCode.STDERR_RESPONSE)
-            self.assertIsInstance(response, str)
+            self.assertIsInstance(response, dict)
             self.assertGreater(len(response), 0)
-        response_msgs = [rsp[1] for rsp in responses]
+            self.assertIsInstance(response["exit_code"], int)
+            self.assertIsInstance(response["output"], str)
+        response_msgs = [rsp[1]["output"] for rsp in responses]
         self.assertIn("unrecognized option", response_msgs[0])
         self.assertIn("command not found", response_msgs[1])
         self.assertIn("command not found", response_msgs[2])
+        response_exit_codes = [rsp[1]["exit_code"] for rsp in responses]
+        # 1 == unrecognized option
+        # 127 == invalid command
+        self.assertListEqual(response_exit_codes, [1, 127, 127])

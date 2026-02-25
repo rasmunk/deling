@@ -198,55 +198,73 @@ class SSHClient:
             if not self.open_channel():
                 return (
                     SSHClientResultCode.CHANNEL_OPEN_ERROR,
-                    f"Failed to open a channel to execute the command: {command}",
+                    {
+                        "output": f"Failed to open a channel to execute the command: {command}",
+                    }
                 )
             channel = self.get_channel()
 
-        return_code = handle_error_codes(channel.execute(command))
-        if return_code != 0:
+        channel_return_code = handle_error_codes(channel.execute(command))
+        if channel_return_code != 0:
             # An unkown error occurred
+            return_dict["channel_error_code"] = channel_return_code
+            return_dict["output"] = f"An unknown error code was returned from executing the command: {command}"
             return (
                 SSHClientResultCode.CHANNEL_EXECUTE_ERROR,
-                f"An unknown error code was returned from executing the command: {command}, error code: {return_code}",
+                return_dict
             )
 
         stderr_success, stderr_response = read_channel_response_stderr(channel)
+        exit_code = read_channel_exit_status(channel)
+        return_dict = {
+            "exit_code": exit_code
+        }
         if not stderr_success:
+            return_dict["output"] = f"Failed to read the channel stderr of the command: {command}",
             return (
                 SSHClientResultCode.CHANNEL_READ_ERROR,
-                f"Failed to read the stderr of the command: {command}",
+                return_dict
             )
 
         if stderr_response:
-            return SSHClientResultCode.STDERR_RESPONSE, stderr_response
+            return_dict["output"] = stderr_response
+            return SSHClientResultCode.STDERR_RESPONSE, return_dict
 
         stdout_success, stdout_response = read_channel_response_stdout(channel)
         if not stdout_success:
+            return_dict["output"] = f"Failed to read the channel stdout of the command: {command}",
             return (
-                SSHClientResultCode.CHANNEL_READ_ERROR,
-                f"Failed to read the stdout of the command: {command}",
+                SSHClientResultCode.CHANNEL_READ_ERROR, return_dict
             )
-        return SSHClientResultCode.SUCCESS, stdout_response
+
+        return_dict["output"] = stdout_response
+        return SSHClientResultCode.SUCCESS, return_dict
 
     def run_single_command(self, command):
         with self as _client:
             if not _client.connect():
                 return (
                     SSHClientResultCode.CONNECTION_ERROR,
-                    f"Failed to run command: {command}, not connected to: {self.host}:{self.port}",
+                    {
+                        "output": f"Failed to run command: {command}, not connected to: {self.host}:{self.port}",
+                    }
                 )
 
             if not _client.open_channel():
                 return (
                     SSHClientResultCode.CHANNEL_OPEN_ERROR,
-                    f"Failed to run command: {command}, no open channel available",
+                    {
+                        "output": f"Failed to run command: {command}, no open channel available",
+                    }
                 )
 
             channel = _client.get_channel()
             return _client.exec_command(command, channel=channel)
         return (
             SSHClientResultCode.UNKNOWN_ERROR,
-            f"Failed to run command: {command}, unknown error happend during the connection phase",
+            {
+                "output": f"Failed to run command: {command}, unknown error happend during the connection phase",
+            }
         )
 
     def run_multiple_commands(self, commands):
@@ -255,14 +273,18 @@ class SSHClient:
             if not _client.connect():
                 return (
                     SSHClientResultCode.CONNECTION_ERROR,
-                    f"Failed to run commands: {commands}, not connected to: {self.host}:{self.port}",
+                    {
+                        "output": f"Failed to run commands: {commands}, not connected to: {self.host}:{self.port}"
+                    }
                 )
             for command in commands:
                 if not _client.open_channel():
                     responses.append(
                         (
                             SSHClientResultCode.CHANNEL_OPEN_ERROR,
-                            f"Failed to run command: {command}, could not open a channel",
+                            {
+                                "output": f"Failed to run command: {command}, could not open a channel"
+                            }
                         )
                     )
                 else:
@@ -294,6 +316,10 @@ def read_channel_response_stderr(channel):
         response += response_str
         size, data = channel.read_stderr(size)
     return True, response
+
+
+def read_channel_exit_status(channel):
+    return channel.get_exit_status()
 
 
 def decode_bytes_to_string(bytes_data):
