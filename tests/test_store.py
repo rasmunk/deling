@@ -48,9 +48,13 @@ class SFTPStoreLifeTimeTests(unittest.TestCase):
         cls.container = make_container(ssh_dummy_cont)
         assert cls.container
         assert cls.container.status == "running"
-        assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
+        assert wait_for_container_output(
+            cls.container.id, "Running the OpenSSH Server"
+        )
         try:
-            assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
+            assert wait_for_session(
+                cls.host, cls.random_ssh_port, max_attempts=10
+            )
         except AssertionError:
             assert remove_container(cls.container.id)
 
@@ -64,7 +68,11 @@ class SFTPStoreLifeTimeTests(unittest.TestCase):
         datastore = SFTPStore(
             host=SFTPStoreLifeTimeTests.host,
             port=f"{SFTPStoreLifeTimeTests.random_ssh_port}",
-            authenticator=SSHAuthenticator(username="mountuser", password="Passw0rd!"),
+            authenticator=SSHAuthenticator(
+                ssh_credentials_kwargs=dict(
+                    username="mountuser", password="Passw0rd!"
+                )
+            ),
         )
         self.assertIsNotNone(datastore)
         self.assertIsNotNone(datastore.ssh_client)
@@ -75,7 +83,11 @@ class SFTPStoreLifeTimeTests(unittest.TestCase):
         with SFTPStore(
             host=SFTPStoreLifeTimeTests.host,
             port=f"{SFTPStoreLifeTimeTests.random_ssh_port}",
-            authenticator=SSHAuthenticator(username="mountuser", password="Passw0rd!"),
+            authenticator=SSHAuthenticator(
+                ssh_credentials_kwargs=dict(
+                    username="mountuser", password="Passw0rd!"
+                )
+            ),
         ) as _share:
             self.assertIsNotNone(_share)
             self.assertIsNotNone(_share.ssh_client)
@@ -88,7 +100,11 @@ class SFTPStoreLifeTimeTests(unittest.TestCase):
         with SFTPStore(
             host=SFTPStoreLifeTimeTests.host,
             port=f"{SFTPStoreLifeTimeTests.random_ssh_port}",
-            authenticator=SSHAuthenticator(username="mountuser", password="Passw0rd!"),
+            authenticator=SSHAuthenticator(
+                ssh_credentials_kwargs=dict(
+                    username="mountuser", password="Passw0rd!"
+                )
+            ),
         ) as _share:
             self.assertIsNotNone(_share)
             self.assertIsNotNone(_share.ssh_client)

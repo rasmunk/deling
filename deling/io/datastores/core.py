@@ -32,7 +32,6 @@ from deling.io.datastores.file import SFTPFileHandle
 
 
 class DataStore:
-
     def __init__(self):
         pass
 
@@ -78,7 +77,9 @@ class DataStore:
 
 
 class SFTPStore(DataStore):
-    def __init__(self, host, port, authenticator, authenticator_prepare_kwargs=None):
+    def __init__(
+        self, host, port, authenticator, authenticator_prepare_kwargs=None
+    ):
         if not authenticator_prepare_kwargs:
             authenticator_prepare_kwargs = {}
 
@@ -93,7 +94,9 @@ class SFTPStore(DataStore):
         if not connected:
             raise ConnectionError("Could not connect to the server")
 
-        channel_opened = self.ssh_client.open_channel(channel_type=CHANNEL_TYPE_SFTP)
+        channel_opened = self.ssh_client.open_channel(
+            channel_type=CHANNEL_TYPE_SFTP
+        )
         if not channel_opened:
             raise ConnectionError("Could not open an SFTP channel")
 
@@ -133,7 +136,9 @@ class SFTPStore(DataStore):
             if flag == "w" or flag == "wb":
                 w_flags = LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE
             elif flag == "a" or flag == "ab":
-                w_flags = LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE | LIBSSH2_FXF_APPEND
+                w_flags = (
+                    LIBSSH2_FXF_CREAT | LIBSSH2_FXF_WRITE | LIBSSH2_FXF_APPEND
+                )
             mode = (
                 LIBSSH2_SFTP_S_IRUSR
                 | LIBSSH2_SFTP_S_IWUSR
@@ -292,7 +297,9 @@ class SFTPStore(DataStore):
             return True
         except Exception:
             error = self.sftp_channel.last_error()
-            print("Failed to remove path: {} - error_code: {}".format(path, error))
+            print(
+                "Failed to remove path: {} - error_code: {}".format(path, error)
+            )
             return False
         return False
 

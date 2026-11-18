@@ -19,105 +19,105 @@ import stat
 import fcntl
 import yaml
 import shutil
+import logging
 
 
-def makedirs(path):
+def makedirs(path, **kwargs) -> tuple[bool, str | None]:
     try:
-        os.makedirs(path)
-        return True
+        os.makedirs(path, **kwargs)
+        return True, None
     except Exception as err:
-        print("Failed to create directory path: {} - {}".format(path, err))
-    return False
+        return False, "failed to create directory path: {} - {}".format(
+            path, err
+        )
 
 
 def acquire_lock(path, mode=fcntl.LOCK_EX):
-    lock = open(path, "w+")
-    try:
-        fcntl.flock(lock.fileno(), mode)
-    except IOError as ioerr:
-        print("Failed to acquire lock: {} - {}".format(path, ioerr))
-        # Clean up
+    with open(path, "w+") as lock:
         try:
-            lock.close()
-        except Exception as err:
-            print("Failed to close lock after failling to acquire it: {}".format(err))
-    return lock
+            fcntl.flock(lock.fileno(), mode)
+            return True, lock
+        except OSError as ioerr:
+            return_msg = "failed to acquire lock: {} - {}".format(path, ioerr)
+    return_msg = (
+        "failed to acquire lock: {} - an unknown error occurred".format(path)
+    )
+    return False, return_msg
 
 
 def release_lock(lock, close=True):
-    fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
-    if close:
-        try:
+    try:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+        if close:
             lock.close()
-        except Exception as err:
-            print("Failed to close file during lock release: {} - {}".format(lock, err))
+        return True, None
+    except Exception as err:
+        return (
+            False,
+            "failed to close file during lock release: {} - {}".format(
+                lock, err
+            ),
+        )
 
 
-def write(path, content, mode="w", mkdirs=False, opener=None):
-    if not opener:
+def write(path, content, mode="w", opener=None):
+    if opener is None:
         opener = open
 
-    dir_path = os.path.dirname(path)
-    if not os.path.exists(dir_path) and mkdirs:
-        if not makedirs(dir_path):
-            return False
     try:
         with opener(path, mode) as fh:
             fh.write(content)
-        return True
+        return True, None
     except Exception as err:
-        print("Failed to save file: {} - {}".format(path, err))
-    return False
+        return False, "failed to save file: {} - {}".format(path, err)
 
 
 def copy(src, dst):
     try:
         shutil.copy(src, dst)
-        return True
+        return True, None
     except Exception as err:
-        print("Failed to copy file: {} - {}".format(src, err))
-    return False
+        return False, "failed to copy file: {} - {}".format(src, err)
 
 
 def load(path, mode="r", readlines=False, opener=None):
-    if not opener:
+    if opener is None:
         opener = open
 
     try:
         with opener(path, mode) as fh:
             if readlines:
-                return fh.readlines()
-            return fh.read()
+                return fh.readlines(), None
+            return fh.read(), None
     except Exception as err:
-        print("Failed to load file: {} - {}".format(path, err))
-    return False
+        return False, "failed to load file: {} - {}".format(path, err)
 
 
 def remove(path):
     try:
-        if os.path.exists(path):
+        if exists(path):
             os.remove(path)
-            return True
+            return True, None
     except Exception as err:
-        print("Failed to remove file: {} - {}".format(path, err))
-    return False
+        return False, "failed to remove file: {} - {}".format(path, err)
+    return True, "file does not exist: {}".format(path)
 
 
 def removedirs(path, recursive=False):
     try:
-        if os.path.exists(path):
+        if exists(path):
             if recursive:
                 shutil.rmtree(path)
             else:
                 os.removedirs(path)
-            return True
+            return True, None
     except Exception as err:
-        print("Failed to remove directory: {} - {}".format(path, err))
-    return False
+        return False, "failed to remove directory: {} - {}".format(path, err)
+    return False, "directory does not exist: {}".format(path)
 
 
 def remove_content_from_file(path, content, opener=None):
-    if not os.path.exists(path):
+    if not exists(path):
         return False
 
     if not content:
@@ -147,43 +147,49 @@ def join(path, *paths):
 def chmod(path, mode, **kwargs):
     try:
         os.chmod(path, mode, **kwargs)
+        return True, None
     except Exception as err:
-        print("Failed to set permissions: {} on: {} - {}".format(mode, path, err))
-        return False
-    return True
+        return False, "failed to set permissions: {} on: {} - {}".format(
+            mode, path, err
+        )
 
 
-def parse_yaml(data):
+def parse_yaml(fh_or_data) -> [bool, dict | str]:
     try:
-        parsed = yaml.safe_load(data)
-        return parsed
-    except yaml.reader.ReaderError as err:
-        print("Failed to parse yaml: {}".format(err))
-    return False
+        parsed_yaml = yaml.safe_load(fh_or_data)
+        return True, parsed_yaml
+    except (yaml.reader.ReaderError, yaml.parser.ParserError) as err:
+        return False, f"parsing yaml failed - err: {err}"
+    return False, "unkown error occured while parsing a yaml filehandle or data"
 
 
-def dump_yaml(path, data, opener=None):
-    if not opener:
+def dump_yaml(path, data, opener=None) -> [bool, str | None]:
+    if opener is None:
         opener = open
 
     try:
         with opener(path, "w") as fh:
             yaml.dump(data, fh)
-        return True
-    except IOError as err:
-        print("Failed to dump yaml: {} - {}".format(path, err))
-    return False
+        return True, None
+    except OSError as err:
+        return False, "failed to dump yaml: {} - {}".format(path, err)
+    except Exception as err:
+        return (
+            False,
+            f"an error occurred while dumping yaml: {path} - err: {err}",
+        )
+    return False, f"unknown error occurred while dumping yaml: {path}"
 
 
 def load_yaml(path, opener=None):
-    if not opener:
+    if opener is None:
         opener = open
     try:
         with opener(path, "r") as fh:
-            return yaml.safe_load(fh)
-    except IOError as err:
-        print("Failed to load yaml: {} - {}".format(path, err))
-    return False
+            return parse_yaml(fh)
+    except OSError as err:
+        return False, f"failed to load yaml path: {path} - err: {err}"
+    return False, "unknown error occured while loading a yaml file"
 
 
 # Read chunks of a file, default to 64KB

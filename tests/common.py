@@ -105,15 +105,19 @@ class CommonDataStoreTests:
     def test_make_nested_directory(self):
         nested_directory_name = "nested"
         make_nested_directory = "nested_directory_{}".format(self.seed)
-        nested_directory = os.path.join(make_nested_directory, nested_directory_name)
+        nested_directory = os.path.join(
+            make_nested_directory, nested_directory_name
+        )
         self.assertTrue(self.share.mkdir(nested_directory, recursive=True))
         self.assertIn(make_nested_directory, self.share.listdir())
         self.assertIn(
-            nested_directory_name, self.share.listdir(path=make_nested_directory)
+            nested_directory_name,
+            self.share.listdir(path=make_nested_directory),
         )
         self.assertTrue(self.share.rmdir(nested_directory))
         self.assertNotIn(
-            nested_directory_name, self.share.listdir(path=make_nested_directory)
+            nested_directory_name,
+            self.share.listdir(path=make_nested_directory),
         )
         self.assertTrue(self.share.rmdir(make_nested_directory))
         self.assertNotIn(make_nested_directory, self.share.listdir())
@@ -122,14 +126,20 @@ class CommonDataStoreTests:
         first_directory_name = "nested_directory_{}".format(self.seed)
         second_directory_name = "nested"
         absolute_top_dir_path = os.path.join(os.sep, "tmp", "tests")
-        make_first_directory = os.path.join(absolute_top_dir_path, first_directory_name)
+        make_first_directory = os.path.join(
+            absolute_top_dir_path, first_directory_name
+        )
         make_second_directory = os.path.join(
             make_first_directory, second_directory_name
         )
 
         self.assertTrue(self.share.mkdir(make_second_directory, recursive=True))
-        self.assertIn(first_directory_name, self.share.listdir(absolute_top_dir_path))
-        self.assertIn(second_directory_name, self.share.listdir(make_first_directory))
+        self.assertIn(
+            first_directory_name, self.share.listdir(absolute_top_dir_path)
+        )
+        self.assertIn(
+            second_directory_name, self.share.listdir(make_first_directory)
+        )
         self.assertTrue(self.share.rmdir(make_second_directory))
         self.assertNotIn(
             second_directory_name, self.share.listdir(make_first_directory)
@@ -142,10 +152,14 @@ class CommonDataStoreTests:
     def test_remove_recursive_directory(self):
         first_directory_name = "remove_nested_directory_{}".format(self.seed)
         second_directory_name = "nested"
-        make_directory_path = os.path.join(first_directory_name, second_directory_name)
+        make_directory_path = os.path.join(
+            first_directory_name, second_directory_name
+        )
         self.assertTrue(self.share.mkdir(make_directory_path, recursive=True))
         self.assertIn(first_directory_name, self.share.listdir())
-        self.assertIn(second_directory_name, self.share.listdir(first_directory_name))
+        self.assertIn(
+            second_directory_name, self.share.listdir(first_directory_name)
+        )
         self.assertTrue(self.share.rmdir(make_directory_path, recursive=True))
         self.assertNotIn(first_directory_name, self.share.listdir())
 
@@ -231,7 +245,9 @@ class CommonDataStoreTests:
         content = b"Hello There"
         self.assertTrue(self.share.write(write_bytes_file, content))
         self.assertIn(write_bytes_file, self.share.listdir())
-        self.assertEqual(self.share.read(write_bytes_file, datatype=bytes), content)
+        self.assertEqual(
+            self.share.read(write_bytes_file, datatype=bytes), content
+        )
         self.assertTrue(self.share.remove(write_bytes_file))
         self.assertNotIn(write_bytes_file, self.share.listdir())
 
@@ -268,7 +284,7 @@ class CommonDataStoreTests:
         filename = "test_file_{}".format(self.seed)
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
         if not exists(tmp_test_dir):
-            self.assertTrue(makedirs(tmp_test_dir))
+            self.assertTrue(makedirs(tmp_test_dir)[0])
         upload_file = os.path.join(tmp_test_dir, filename)
         # 100 MB
         size = 1024 * 1024 * 100
@@ -292,7 +308,7 @@ class CommonDataStoreTests:
         filename = "test_file_{}".format(self.seed)
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
         if not exists(tmp_test_dir):
-            self.assertTrue(makedirs(tmp_test_dir))
+            self.assertTrue(makedirs(tmp_test_dir)[0])
         upload_file = os.path.join(tmp_test_dir, filename)
 
         size = 1024 * 1024

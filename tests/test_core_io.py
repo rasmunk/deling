@@ -54,14 +54,20 @@ class SFTPStoreTest(CommonDataStoreTests, unittest.TestCase):
         cls.container = make_container(ssh_dummy_cont)
         assert cls.container
         assert cls.container.status == "running"
-        assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
+        assert wait_for_container_output(
+            cls.container.id, "Running the OpenSSH Server"
+        )
         try:
-            assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
+            assert wait_for_session(
+                cls.host, cls.random_ssh_port, max_attempts=10
+            )
             cls.share = SFTPStore(
                 host=cls.host,
                 port=f"{cls.random_ssh_port}",
                 authenticator=SSHAuthenticator(
-                    username="mountuser", password="Passw0rd!"
+                    ssh_credentials_kwargs=dict(
+                        username="mountuser", password="Passw0rd!"
+                    )
                 ),
             )
         except AssertionError:
@@ -77,7 +83,7 @@ class SFTPStoreTest(CommonDataStoreTests, unittest.TestCase):
         filename = "stat_file_{}".format(self.seed)
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
         if not exists(tmp_test_dir):
-            self.assertTrue(makedirs(tmp_test_dir))
+            self.assertTrue(makedirs(tmp_test_dir)[0])
         upload_file = os.path.join(tmp_test_dir, filename)
 
         size = 1024 * 1024
@@ -98,7 +104,7 @@ class SFTPStoreTest(CommonDataStoreTests, unittest.TestCase):
         filename = "set_stat_file_{}".format(self.seed)
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
         if not exists(tmp_test_dir):
-            self.assertTrue(makedirs(tmp_test_dir))
+            self.assertTrue(makedirs(tmp_test_dir)[0])
         upload_file = os.path.join(tmp_test_dir, filename)
 
         size = 1024 * 1024
@@ -120,7 +126,9 @@ class SFTPStoreTest(CommonDataStoreTests, unittest.TestCase):
         self.assertEqual(stat.S_IMODE(new_stats.permissions), new_permissions)
 
 
-class SFTPStoreFileHandleTest(CommonDataStoreFileHandleTests, unittest.TestCase):
+class SFTPStoreFileHandleTest(
+    CommonDataStoreFileHandleTests, unittest.TestCase
+):
     @classmethod
     def setUpClass(cls):
         # Start dummy mount container where the public key is an
@@ -137,14 +145,20 @@ class SFTPStoreFileHandleTest(CommonDataStoreFileHandleTests, unittest.TestCase)
         cls.container = make_container(ssh_dummy_cont)
         assert cls.container
         assert cls.container.status == "running"
-        assert wait_for_container_output(cls.container.id, "Running the OpenSSH Server")
+        assert wait_for_container_output(
+            cls.container.id, "Running the OpenSSH Server"
+        )
         try:
-            assert wait_for_session(cls.host, cls.random_ssh_port, max_attempts=10)
+            assert wait_for_session(
+                cls.host, cls.random_ssh_port, max_attempts=10
+            )
             cls.share = SFTPStore(
                 host=cls.host,
                 port=f"{cls.random_ssh_port}",
                 authenticator=SSHAuthenticator(
-                    username="mountuser", password="Passw0rd!"
+                    ssh_credentials_kwargs=dict(
+                        username="mountuser", password="Passw0rd!"
+                    )
                 ),
             )
         except AssertionError:
@@ -176,4 +190,6 @@ class SFTPStoreFileHandleTest(CommonDataStoreFileHandleTests, unittest.TestCase)
             self.assertTrue(_file.fsetstat(file_stat))
 
             new_file_stat = _file.fstat()
-            self.assertEqual(stat.S_IMODE(new_file_stat.permissions), new_permissions)
+            self.assertEqual(
+                stat.S_IMODE(new_file_stat.permissions), new_permissions
+            )

@@ -27,7 +27,9 @@ from utils import gen_random_file
 
 
 @pytest.mark.erda
-class ERDASFTPShareFileHandleTest(CommonDataStoreFileHandleTests, unittest.TestCase):
+class ERDASFTPShareFileHandleTest(
+    CommonDataStoreFileHandleTests, unittest.TestCase
+):
     @classmethod
     def setUpClass(cls):
         username = None
@@ -184,7 +186,7 @@ class ERDASFTPShareTest(CommonDataStoreTests, unittest.TestCase):
         filename = "stat_file_{}".format(self.seed)
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
         if not exists(tmp_test_dir):
-            self.assertTrue(makedirs(tmp_test_dir))
+            self.assertTrue(makedirs(tmp_test_dir)[0])
         upload_file = os.path.join(tmp_test_dir, filename)
 
         size = 1024 * 1024
@@ -205,7 +207,7 @@ class ERDASFTPShareTest(CommonDataStoreTests, unittest.TestCase):
         filename = "set_stat_file_{}".format(self.seed)
         tmp_test_dir = os.path.join(os.getcwd(), "tests", "tmp")
         if not exists(tmp_test_dir):
-            self.assertTrue(makedirs(tmp_test_dir))
+            self.assertTrue(makedirs(tmp_test_dir)[0])
         upload_file = os.path.join(tmp_test_dir, filename)
 
         size = 1024 * 1024

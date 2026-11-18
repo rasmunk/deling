@@ -19,14 +19,12 @@ from ssh2.session import Session
 from ssh2.utils import handle_error_codes
 from enum import Enum
 
-
 CHANNEL_TYPE_SESSION = "session"
 CHANNEL_TYPE_SFTP = "sftp"
 CHANNEL_TYPES = [CHANNEL_TYPE_SESSION, CHANNEL_TYPE_SFTP]
 
 
 class SSHClientResultCode(Enum):
-
     SUCCESS = 0
     STDERR_RESPONSE = 1
     CONNECTION_ERROR = 10
@@ -285,7 +283,9 @@ class SSHClient:
                     )
                 else:
                     channel = _client.get_channel()
-                    responses.append(_client.exec_command(command, channel=channel))
+                    responses.append(
+                        _client.exec_command(command, channel=channel)
+                    )
                     _client.close_channel()
         return responses
 
