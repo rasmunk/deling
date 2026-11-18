@@ -499,6 +499,43 @@ class SSHCredentials:
         }
 
     @classmethod
+    def validate_dict(cls, ssh_credentials_dict: dict) -> (bool, str):
+        if not isinstance(ssh_credentials_dict, dict):
+            return False, "SSH credentials must be a dictionary"
+
+        if (
+            "username" in ssh_credentials_dict
+            and ssh_credentials_dict["username"] is not None
+            and not isinstance(ssh_credentials_dict["username"], str)
+        ):
+            return False, "SSH credentials username must be a string"
+        if (
+            "password" in ssh_credentials_dict
+            and ssh_credentials_dict["password"] is not None
+            and not isinstance(ssh_credentials_dict["password"], str)
+        ):
+            return False, "SSH credentials password must be a string"
+        if (
+            "private_key" in ssh_credentials_dict
+            and ssh_credentials_dict["private_key"] is not None
+            and not isinstance(ssh_credentials_dict["private_key"], str)
+        ):
+            return False, "SSH credentials private_key must be a string"
+        if (
+            "private_key_file" in ssh_credentials_dict
+            and ssh_credentials_dict["private_key_file"] is not None
+            and not isinstance(ssh_credentials_dict["private_key_file"], str)
+        ):
+            return False, "SSH credentials private_key_file must be a string"
+        if (
+            "public_key" in ssh_credentials_dict
+            and ssh_credentials_dict["public_key"] is not None
+            and not isinstance(ssh_credentials_dict["public_key"], str)
+        ):
+            return False, "SSH credentials public_key must be a string"
+        return True, "SSH credentials is valid"
+
+    @classmethod
     def from_dict(
         cls, ssh_credentials_dict: dict[str, str | None]
     ) -> "SSHCredentials":
